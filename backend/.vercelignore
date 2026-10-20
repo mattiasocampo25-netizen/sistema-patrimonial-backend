@@ -1,0 +1,17 @@
+# Nunca subir al deployment: credenciales y datos.
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+
+# Scripts legacy de la migracion SQLite -> Postgres (no se usan en runtime).
+migrar.js
+inspector.js
+inspect_db.js
+install_deps.js
+
+# Tests y utilidades de desarrollo.
+test/
+coverage/
+.vercel/

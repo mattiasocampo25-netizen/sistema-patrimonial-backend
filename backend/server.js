@@ -16,7 +16,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { parseRowData, idValido, esPrivilegiado } = require('./lib/helpers');
-const { cabecerasSeguras, crearLimitadorLogin, tablaEnBlanco, crearLimitadorGeneral, sanitizarObjeto } = require('./lib/security');
+const { cabecerasSeguras, cabecerasCSP, crearLimitadorLogin, tablaEnBlanco, crearLimitadorGeneral, sanitizarObjeto } = require('./lib/security');
 const { validarEntradaLogin, autenticarUsuario } = require('./lib/auth');
 const { exigirAdmin } = require('./lib/authz');
 const {
@@ -70,6 +70,12 @@ const ssl = process.env.DATABASE_SSL === 'disable'
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl
+});
+
+// Sin este listener, un error en un cliente idle de 'pg' se lanza como
+// excepcion no capturada y MATA el proceso (ver doc de node-postgres).
+pool.on('error', (err) => {
+  console.error('❌ Error inesperado en el pool de PostgreSQL:', err.message);
 });
 
 pool.connect((err, client, release) => {
@@ -237,8 +243,11 @@ app.post('/api/bens/bulk', async (req, res) => {
   if (!Array.isArray(bienesArray)) return res.status(400).json({ error: 'Arreglo inválido' });
   if (bienesArray.length > MAX_BULK) return res.status(400).json({ error: 'Demasiados registros' });
 
-  const client = await pool.connect();
+  let client;
   try {
+    // El connect va DENTRO del try: si el pool no entrega cliente, la promesa
+    // rechazaria fuera del try y Express 4 no captura ese rejection -> proceso muerto.
+    client = await pool.connect();
     await client.query('BEGIN');
     for (const b of bienesArray) {
       if (!idValido(b?.id)) {
@@ -254,10 +263,10 @@ app.post('/api/bens/bulk', async (req, res) => {
     io.emit('data_updated');
     res.status(201).json({ message: `${bienesArray.length} bienes importados` });
   } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (e) { /* rollback ya falló */ }
+    try { if (client) await client.query('ROLLBACK'); } catch (e) { /* rollback ya falló */ }
     enviarError(res, err);
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -505,8 +514,11 @@ app.get('/api/respaldo/exportar', exigirAdmin, async (_req, res) => {
  * Transacción por tabla: si falla una tabla, se hace rollback de esa tabla.
  */
 app.post('/api/respaldo/restaurar', exigirAdmin, async (req, res) => {
-  const cliente = await pool.connect();
+  let cliente;
   try {
+    // El connect va DENTRO del try: si el pool no entrega cliente, la promesa
+    // rechazaria fuera del try y Express 4 no captura ese rejection -> proceso muerto.
+    cliente = await pool.connect();
     const crudo = req.body;
     const validacion = validarEsquemaRespaldo(crudo);
 
@@ -614,10 +626,10 @@ app.post('/api/respaldo/restaurar', exigirAdmin, async (req, res) => {
       res.status(207).json({ message: `Restauración con ${fallos} error(es)`, resultados, errores });
     }
   } catch (err) {
-    try { await cliente.query('ROLLBACK'); } catch (_) {}
+    try { if (cliente) await cliente.query('ROLLBACK'); } catch (_) {}
     enviarError(res, err);
   } finally {
-    cliente.release();
+    if (cliente) cliente.release();
   }
 });
 
@@ -684,8 +696,13 @@ app.get('/api/app_config', exigirPrivilegio, async (_req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
-    // Si la tabla no existe aún, devolver config vacía sin error.
-    res.json({ id: 'global', en_mantenimiento: false, mensaje: '', mejoras: [], ultima_version: '' });
+    // Solo se tolera el error "la tabla no existe todavia" (42P01). Cualquier
+    // otro fallo (permisos, red, BD caida) antes se disfrazaba de "sin
+    // mantenimiento" y hacia creer que todo estaba bien.
+    if (err && err.code === '42P01') {
+      return res.json({ id: 'global', en_mantenimiento: false, mensaje: '', mejoras: [], ultima_version: '' });
+    }
+    return enviarError(res, err);
   }
 });
 
@@ -707,7 +724,11 @@ app.patch('/api/app_config', exigirPrivilegio, async (req, res) => {
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`❌ El puerto ${PORT} está ocupado. Cierra los otros procesos node de tu sistema.`);
+    // Sin salir, el proceso queda vivo SIN socket escuchando: parece sano y no lo esta.
+    process.exit(1);
   }
+  console.error('❌ Error del servidor HTTP:', err.message);
+  process.exit(1);
 });
 
 // Solo escuchar si se ejecuta directamente (desarrollo local).
