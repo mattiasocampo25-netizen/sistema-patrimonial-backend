@@ -27,11 +27,30 @@ const {
   normalizarFilaParaEscribir
 } = require('./lib/respaldo');
 
+// ---------------------------------------------------------------------------
+// Variables de entorno.
+//
+// Se aceptan varios nombres para cada una porque el proyecto de Vercel puede
+// tenerlas con el nombre "nuevo" (DATABASE_URL) o con el que usaba la
+// configuración anterior (supabase_db_url). Con un bloque "env" en vercel.json
+// esto se pisaba: si el secreto nuevo no existia, la variable quedaba vacia
+// y la funcion moria al arrancar con un 500 sin cuerpo. Resolviendo aqui, el
+// backend funciona con cualquiera de los dos y no depende de un mapeo que
+// pueda quedar desactualizado.
+// ---------------------------------------------------------------------------
+const primerValor = (...nombres) => {
+  for (const n of nombres) {
+    const v = process.env[n];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+};
+
 const BCRYPT_ROUNDS = 12;
 const MAX_BULK = 2000;
 const PORT = process.env.PORT || 3001;
-const SECRET_KEY = process.env.SECRET_KEY;
-const CORS_ORIGIN = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+const SECRET_KEY = primerValor('SECRET_KEY', 'JWT_SECRET', 'app_jwt_secret', 'supabase_jwt_secret');
+const CORS_ORIGIN = (primerValor('CORS_ORIGIN', 'cors_origin') || 'http://localhost:5173')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -46,18 +65,27 @@ app.use(cabecerasCSP);
 app.use(cors(corsOpts));
 app.use(express.json({ limit: '2mb' }));
 
-// Se acepta también SUPABASE_DB_URL como alias: en Vercel el nombre de la
-// variable puede depender de como se haya creado el secreto, y con el nombre
-// equivocado la funcion muere al arrancar con un 500 sin explicar nada.
-const databaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-if (!databaseUrl) {
-  console.error('❌ Falta la variable de entorno DATABASE_URL. Copia .env.example a .env y completa la URL de conexión.');
-  process.exit(1);
-}
+// Se aceptan varios nombres para la URL: el proyecto de Vercel puede tenerla
+// como DATABASE_URL, SUPABASE_DB_URL o supabase_db_url (la configuración
+// anterior). Ver primerValor() arriba.
+const databaseUrl = primerValor('DATABASE_URL', 'SUPABASE_DB_URL', 'supabase_db_url', 'POSTGRES_URL');
 
-if (!SECRET_KEY) {
-  console.error('❌ Falta la variable de entorno SECRET_KEY. Genera una con: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"');
-  process.exit(1);
+// ---------------------------------------------------------------------------
+// Falta de configuracion.
+//
+// Antes el proceso hacia process.exit(1) al importar: en Vercel eso se
+// traduce en "FUNCTION_INVOCATION_FAILED", un 500 con cuerpo vacio que no
+// dice absolutamente nada. Ahora el proceso arranca igual, y las rutas
+// responden 503 diciendo EXACTAMENTE que variable falta y donde definirla.
+// ---------------------------------------------------------------------------
+const FALTAN_CONFIG = [];
+if (!databaseUrl) FALTAN_CONFIG.push('DATABASE_URL');
+if (!SECRET_KEY) FALTAN_CONFIG.push('SECRET_KEY');
+if (FALTAN_CONFIG.length) {
+  console.error(
+    '❌ Configuración incompleta. Faltan: ' + FALTAN_CONFIG.join(', ') +
+    ' — definelas en Vercel > Settings > Environment Variables.'
+  );
 }
 
 // Ya no se usa para crear el usuario 'admin' (ver inicializarTablas): la
@@ -175,8 +203,40 @@ async function upsertJson(tabla, id, cuerpo) {
   );
 }
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+// Salud del servicio. Informa también si la configuración está completa, para
+// poder distinguir "la BD caída" de "faltan variables de entorno".
+app.get('/api/health', async (_req, res) => {
+  const base = {
+    ok: FALTAN_CONFIG.length === 0,
+    configuracion_completa: FALTAN_CONFIG.length === 0,
+    faltan: FALTAN_CONFIG,
+    env: process.env.VERCEL_ENV || 'local',
+    version: '2.3'
+  };
+  if (FALTAN_CONFIG.length) {
+    return res.status(503).json({
+      ...base,
+      error: 'El backend no está configurado.',
+      ayuda: 'Definí ' + FALTAN_CONFIG.join(' y ') + ' en Vercel > Settings > Environment Variables.'
+    });
+  }
+  try {
+    await pool.query('SELECT 1');
+    return res.json({ ...base, db: 'ok' });
+  } catch (err) {
+    return res.status(503).json({ ...base, ok: false, db: 'error', error: err.message });
+  }
+});
+
+// Si falta configuración, el resto de la API responde 503 CON EL DETALLE en
+// vez de dejar que la función muera con un 500 sin cuerpo.
+app.use('/api', (req, res, next) => {
+  if (!FALTAN_CONFIG.length) return next();
+  return res.status(503).json({
+    error: 'El backend no está configurado.',
+    faltan: FALTAN_CONFIG,
+    ayuda: 'Definí ' + FALTAN_CONFIG.join(' y ') + ' en Vercel > Settings > Environment Variables.'
+  });
 });
 
 // Limita intentos de login por IP: sin esto, la API auxiliar queda abierta a
