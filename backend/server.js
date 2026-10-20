@@ -56,8 +56,15 @@ const CORS_ORIGIN = (primerValor('CORS_ORIGIN', 'cors_origin') || 'http://localh
   .filter(Boolean);
 
 const app = express();
+
+// Detras de un proxy (Vercel, nginx) `req.ip` es la IP del proxy: sin esto
+// todos los clientes comparten la misma clave en el limitador de peticiones y
+// el primero que llega bloquea a los demas. `1` toma la IP real de
+// X-Forwarded-For, que es lo que Vercel envia.
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
-const corsOpts = { origin: CORS_ORIGIN, methods: ['GET', 'POST', 'PUT', 'DELETE'] };
+const corsOpts = { origin: CORS_ORIGIN, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] };
 const io = new Server(server, { cors: corsOpts });
 
 app.use(cabecerasSeguras);
@@ -339,8 +346,62 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
   }
 });
 
-app.use('/api', autenticar);
 app.use('/api', limitadorGeneral);
+app.use('/api', autenticar);
+// ---------------------------------------------------------------------------
+// Contexto del usuario autenticado.
+//
+// El backend se conecta con el rol postgres, que IGNORA el RLS de Supabase:
+// todo lo que lea aqui salta las politicas que se configuraron en la base.
+// Por eso el acotado por dependencia se hace en la API, con el mismo criterio
+// que el RLS: los privilegiados (admin / desarrollador) ven todo y el resto,
+// solo lo de su dependencia.
+// ---------------------------------------------------------------------------
+const CACHE_CONTEXTO = new Map();
+const TTL_CONTEXTO = 60 * 1000;
+
+const resolverContexto = async (req) => {
+  const username = req.user && req.user.username;
+  if (!username) return { rol: null, dependencia: null, privileged: false };
+  const guardado = CACHE_CONTEXTO.get(username);
+  if (guardado && Date.now() - guardado.ts < TTL_CONTEXTO) return guardado;
+  try {
+    const r = await pool.query(
+      'SELECT username, cargo, dependencia FROM usuarios WHERE lower(username) = lower($1) LIMIT 1',
+      [username]
+    );
+    const fila = r.rows[0];
+    const ctx = {
+      rol: (req.user && req.user.role) || (fila && fila.cargo) || null,
+      dependencia: (fila && fila.dependencia) || null,
+      privileged: esPrivilegiado((req.user && req.user.role) || (fila && fila.cargo)),
+      ts: Date.now()
+    };
+    CACHE_CONTEXTO.set(username, ctx);
+    return ctx;
+  } catch (e) {
+    return {
+      rol: (req.user && req.user.role) || null,
+      dependencia: null,
+      privileged: esPrivilegiado(req.user && req.user.role)
+    };
+  }
+};
+
+app.use('/api', async (req, res, next) => {
+  req.ctx = await resolverContexto(req);
+  next();
+});
+
+// Where para acotar una consulta por dependencia. Devuelve el fragmento y los
+// parametros; la columna la pone el codigo, nunca el usuario.
+const dondeDependencia = (req, columna) => {
+  if (req.ctx && req.ctx.privileged) return { sql: '', params: [] };
+  const dep = req.ctx && req.ctx.dependencia;
+  if (!dep) return { sql: ' WHERE FALSE', params: [] };
+  return { sql: ' WHERE ' + columna + ' = $1', params: [dep] };
+};
+
 // Sanitización ligera de cuerpos JSON entrantes (previene claves '__proto__',
 // 'constructor', 'prototype' y elimina claves nulas vacías).
 app.use('/api', (req, res, next) => {
@@ -350,9 +411,10 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-app.get('/api/bens', async (_req, res) => {
+app.get('/api/bens', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM bens');
+    const d = dondeDependencia(req, "(data->>'dependencia')");
+    const result = await pool.query('SELECT * FROM bens' + d.sql, d.params);
     const bienes = result.rows.map((r) => {
       const item = parseRowData(r);
       return {
@@ -368,7 +430,7 @@ app.get('/api/bens', async (_req, res) => {
   }
 });
 
-app.post('/api/bens', async (req, res) => {
+app.post('/api/bens', exigirPrivilegio, async (req, res) => {
   const b = req.body;
   if (!idValido(b?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
@@ -380,7 +442,7 @@ app.post('/api/bens', async (req, res) => {
   }
 });
 
-app.post('/api/bens/bulk', async (req, res) => {
+app.post('/api/bens/bulk', exigirPrivilegio, async (req, res) => {
   const bienesArray = req.body;
   if (!Array.isArray(bienesArray)) return res.status(400).json({ error: 'Arreglo inválido' });
   if (bienesArray.length > MAX_BULK) return res.status(400).json({ error: 'Demasiados registros' });
@@ -412,7 +474,7 @@ app.post('/api/bens/bulk', async (req, res) => {
   }
 });
 
-app.put('/api/bens/:id', async (req, res) => {
+app.put('/api/bens/:id', exigirPrivilegio, async (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
     const result = await pool.query('UPDATE bens SET data = $1 WHERE id = $2', [JSON.stringify(req.body), req.params.id]);
@@ -424,7 +486,7 @@ app.put('/api/bens/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/bens/:id', async (req, res) => {
+app.delete('/api/bens/:id', exigirPrivilegio, async (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
     const result = await pool.query('DELETE FROM bens WHERE id = $1', [req.params.id]);
@@ -436,16 +498,17 @@ app.delete('/api/bens/:id', async (req, res) => {
   }
 });
 
-app.get('/api/fc10', async (_req, res) => {
+app.get('/api/fc10', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM fc10');
+    const d = dondeDependencia(req, "(data->>'dependencia')");
+    const result = await pool.query('SELECT * FROM fc10' + d.sql, d.params);
     res.json(result.rows.map((r) => parseRowData(r)));
   } catch (err) {
     enviarError(res, err);
   }
 });
 
-app.post('/api/fc10', async (req, res) => {
+app.post('/api/fc10', exigirPrivilegio, async (req, res) => {
   const f = req.body;
   if (!idValido(f?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
@@ -457,7 +520,7 @@ app.post('/api/fc10', async (req, res) => {
   }
 });
 
-app.put('/api/fc10/:id', async (req, res) => {
+app.put('/api/fc10/:id', exigirPrivilegio, async (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
     const result = await pool.query('UPDATE fc10 SET data = $1 WHERE id = $2', [JSON.stringify(req.body), req.params.id]);
@@ -469,7 +532,7 @@ app.put('/api/fc10/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/fc10/:id', async (req, res) => {
+app.delete('/api/fc10/:id', exigirPrivilegio, async (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
     const result = await pool.query('DELETE FROM fc10 WHERE id = $1', [req.params.id]);
@@ -481,16 +544,21 @@ app.delete('/api/fc10/:id', async (req, res) => {
   }
 });
 
-app.get('/api/fc11', async (_req, res) => {
+app.get('/api/fc11', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM fc11');
+    // En un FC-11 la dependencia puede estar en el origen o en el destino.
+    const d = dondeDependencia(req, "(data->>'dependenciaRemitente')");
+    const sql = d.sql
+      ? " WHERE (data->>'dependenciaRemitente') = $1 OR (data->>'dependenciaDestinataria') = $1"
+      : d.sql;
+    const result = await pool.query('SELECT * FROM fc11' + sql, d.params);
     res.json(result.rows.map((r) => parseRowData(r)));
   } catch (err) {
     enviarError(res, err);
   }
 });
 
-app.post('/api/fc11', async (req, res) => {
+app.post('/api/fc11', exigirPrivilegio, async (req, res) => {
   const f = req.body;
   if (!idValido(f?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
@@ -502,16 +570,17 @@ app.post('/api/fc11', async (req, res) => {
   }
 });
 
-app.get('/api/fc04', async (_req, res) => {
+app.get('/api/fc04', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM fc04');
+    const d = dondeDependencia(req, "(data->>'dependencia')");
+    const result = await pool.query('SELECT * FROM fc04' + d.sql, d.params);
     res.json(result.rows.map((r) => parseRowData(r)));
   } catch (err) {
     enviarError(res, err);
   }
 });
 
-app.post('/api/fc04', async (req, res) => {
+app.post('/api/fc04', exigirPrivilegio, async (req, res) => {
   const f = req.body;
   if (!idValido(f?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
@@ -532,7 +601,7 @@ app.get('/api/estructuras', async (_req, res) => {
   }
 });
 
-app.post('/api/estructuras', async (req, res) => {
+app.post('/api/estructuras', exigirPrivilegio, async (req, res) => {
   const e = req.body;
   if (!idValido(e?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
@@ -587,9 +656,10 @@ app.delete('/api/usuarios/:username', exigirPrivilegio, async (req, res) => {
   }
 });
 
-app.get('/api/auditoria', async (_req, res) => {
+app.get('/api/auditoria', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM auditoria');
+    const d = dondeDependencia(req, 'dependencia');
+    const result = await pool.query('SELECT * FROM auditoria' + d.sql, d.params);
     res.json(result.rows.map((r) => ({ ...r, leido: Boolean(r.leido) })));
   } catch (err) {
     enviarError(res, err);
@@ -600,10 +670,13 @@ app.post('/api/auditoria', async (req, res) => {
   const a = req.body;
   if (!idValido(a?.id)) return res.status(400).json({ error: 'Id inválido' });
   try {
+    // El destinatario sale del token, NUNCA del cuerpo: si no, cualquiera
+    // podria escribir una traza a nombre de otro usuario.
+    const destinatario = (req.user && req.user.username) || a.usuarioDestino;
     await pool.query(
       `INSERT INTO auditoria (id, tipoRegistro, usuarioDestino, titulo, mensaje, leido, fecha, bienId, accion)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [a.id, a.tipoRegistro, a.usuarioDestino, a.titulo, a.mensaje, a.leido ? 1 : 0, a.fecha, a.bienId || '', a.accion || '']
+      [a.id, a.tipoRegistro, destinatario, a.titulo, a.mensaje, a.leido ? 1 : 0, a.fecha, a.bienId || '', a.accion || '']
     );
     res.status(201).json({ message: 'Notificación creada' });
   } catch (err) {
