@@ -44,14 +44,31 @@ El archivo `frontend/vercel.json` ya está configurado con los rewrites para SPA
    - **Build Command**: (dejar vacío, no es necesario para Node)
    - **Output Directory**: (dejar vacío)
 4. Vercel detectará `backend/api/index.js` como la función serverless y `backend/vercel.json` para las rutas.
-5. Agrega las **Variables de Entorno** obligatorias:
-   - `DATABASE_URL` = `postgresql://usuario:clave@host:5432/postgres` (tu Supabase/Postgres)
-   - `SECRET_KEY` = `genera-con-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
-   - `ADMIN_INITIAL_PASSWORD` = `contraseña-admin-inicial`
-   - `CORS_ORIGIN` = `https://tu-frontend.vercel.app`
-   - `PORT` = `3001`
-   - `DATABASE_SSL` = `disable`
+5. Agrega las **Variables de Entorno** obligatorias en
+   *Settings → Environment Variables*. El nombre debe ser **exacto**: son las
+   que lee el código (`process.env.X`).
+
+   | Nombre | Valor |
+   |---|---|
+   | `DATABASE_URL` | `postgresql://postgres.<ref>:<clave>@aws-0-<regiona>.pooler.supabase.com:5432/postgres` |
+   | `SECRET_KEY` | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+   | `ADMIN_INITIAL_PASSWORD` | contraseña del admin inicial (solo se usa la primera vez) |
+   | `CORS_ORIGIN` | `https://tu-frontend.vercel.app` |
+
+   > **Usa el pooler de Supabase** (`aws-0-<regiona>.pooler.supabase.com`, usuario
+   > `postgres.<ref>`), no el host directo `db.<ref>.supabase.co`: el host
+   > directo es **IPv6-only** y no resuelve en la mayoría de las redes.
+   >
+   > `SECRET_KEY` **no** puede ser el secreto JWT de Supabase: si lo fuera,
+   > cualquiera con la `service_role` podría firmar un token de administrador
+   > y la API lo aceptaría. Es una clave propia de esta API.
+   >
+   > No hace falta definir `PORT` (lo asigna Vercel) ni `DATABASE_SSL` (si no
+   > está definido, el servidor usa `rejectUnauthorized: false`, que es SSL
+   > activo y es lo que exige Supabase).
 6. Haz clic en **Deploy**.
+7. **Redeploy** después de cambiar variables: no se aplican a despliegues ya
+   hechos (Deployments → ⋯ → Redeploy).
 
 El backend queda expuesto en `https://tu-backend.vercel.app/api/...`
 
