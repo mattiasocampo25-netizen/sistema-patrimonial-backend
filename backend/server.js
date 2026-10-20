@@ -203,6 +203,17 @@ async function upsertJson(tabla, id, cuerpo) {
   );
 }
 
+// Raíz: identificar el servicio. Antes caía en un 500 porque la función se
+// montaba también en "/" sin tener ruta para eso.
+app.get('/', (_req, res) => {
+  res.json({
+    servicio: 'API del Sistema de Gestion Patrimonial UNP',
+    version: '2.3',
+    salud: '/api/health',
+    documentacion: 'DEPLOY_VERCEL.md (seccion "Endpoints clave")'
+  });
+});
+
 // Salud del servicio. Informa también si la configuración está completa, para
 // poder distinguir "la BD caída" de "faltan variables de entorno".
 app.get('/api/health', async (_req, res) => {
