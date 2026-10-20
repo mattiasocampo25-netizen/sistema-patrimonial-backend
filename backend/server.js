@@ -214,7 +214,10 @@ const conexionResumen = () => {
       puerto: u.port || '5432',
       usuario: decodeURIComponent(u.username || ''),
       base_de_datos: (u.pathname || '/postgres').replace(/^\//, '') || 'postgres',
-      ssl: databaseUrl.startsWith('postgresql://') && !databaseUrl.includes('sslmode=disable') ? 'si' : 'revisar'
+      ssl: databaseUrl.startsWith('postgresql://') && !databaseUrl.includes('sslmode=disable') ? 'si' : 'revisar',
+      // Solo la longitud: alcanza para detectar un pegado truncado o con
+      // caracteres de mas, y no revela nada de la contrasena.
+      longitud_contrasena: (u.password || '').length
     };
   } catch (e) {
     return { error: 'DATABASE_URL no es una URL valida' };
