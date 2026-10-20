@@ -881,4 +881,14 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, io, pool };
+// La app se exporta como FUNCION (que es lo que Vercel invoca cuando usa
+// `main` de package.json como entrypoint) y ademas como propiedades, para no
+// romper `const { app } = require('./server.js')` ni `api/index.js`.
+//
+// Antes se exportaba solo el objeto { app, io, pool }: Vercel lo tomaba como
+// entrypoint de la raiz y al invocarlo fallaba con
+// FUNCTION_INVOCATION_FAILED (un objeto no es un handler).
+module.exports = app;
+module.exports.app = app;
+module.exports.io = io;
+module.exports.pool = pool;
