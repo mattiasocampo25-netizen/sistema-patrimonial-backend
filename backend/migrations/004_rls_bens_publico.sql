@@ -2,6 +2,11 @@
 -- 004_rls_bens_publico.sql
 -- Cierra el acceso ANONIMO a la tabla `bens`.
 --
+-- ESTADO: APLICADA EN PRODUCCION el 2026-10-20, despues de verificar que el
+-- frontend desplegado ya usaba la RPC (se comprobo en el sitio en
+-- produccion: la vista publica llama a /rest/v1/rpc/obtener_bien_publico y
+-- NO a /rest/v1/bens).
+--
 -- =============================================================================
 -- ORDEN DE APLICACIÓN (importante)
 -- =============================================================================
