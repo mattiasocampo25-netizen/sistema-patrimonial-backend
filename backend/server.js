@@ -57,10 +57,12 @@ if (!SECRET_KEY) {
   process.exit(1);
 }
 
+// Ya no se usa para crear el usuario 'admin' (ver inicializarTablas): la
+// app autentica con Supabase Auth y la tabla `usuarios` solo guarda el
+// perfil. Se mantiene como aviso por compatibilidad con despliegues viejos.
 const ADMIN_INITIAL_PASSWORD = process.env.ADMIN_INITIAL_PASSWORD;
 if (!ADMIN_INITIAL_PASSWORD) {
-  console.error('❌ Falta la variable de entorno ADMIN_INITIAL_PASSWORD (contraseña del admin inicial). Ver .env.example.');
-  process.exit(1);
+  console.warn('⚠️  ADMIN_INITIAL_PASSWORD no está definida. Ya no se usa (el alta de usuarios se hace contra Supabase Auth).');
 }
 
 const ssl = process.env.DATABASE_SSL === 'disable'
@@ -141,15 +143,15 @@ function inicializarTablas() {
       for (const q of queries) {
         await pool.query(q);
       }
-      const existente = await pool.query('SELECT username FROM usuarios WHERE username = $1', ['admin']);
-      if (existente.rows.length === 0) {
-        const hashAdmin = await bcrypt.hash(ADMIN_INITIAL_PASSWORD, BCRYPT_ROUNDS);
-        await pool.query(
-          `INSERT INTO usuarios (username, nombre, password, cargo)
-           VALUES ($1, $2, $3, $4)`,
-          ['admin', 'Administrador General', hashAdmin, 'admin']
-        );
-      }
+      // NO se crea un usuario 'admin' acá a propósito.
+      //
+      // La app autentica con Supabase Auth, no con la tabla `usuarios`: esa
+      // tabla solo guarda el perfil (username, nombre, cargo, dependencia).
+      // Un usuario 'admin' creado desde acá queda como perfil huérfano, sin
+      // cuenta de Auth, y no puede iniciar sesión nunca. Peor: se insertaba
+      // su contraseña con bcrypt en `usuarios.password`, que es una columna
+      // legacy que la app ya no usa (y que la migración 002 dejó en bcrypt
+      // para que al menos no quede en texto plano).
       console.log('✅ Tablas verificadas/inicializadas en Supabase.');
     } catch (e) {
       console.error('❌ Error al inicializar tablas:', e.message);
