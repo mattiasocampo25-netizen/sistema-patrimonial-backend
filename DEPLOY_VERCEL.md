@@ -43,7 +43,19 @@ El archivo `frontend/vercel.json` ya está configurado con los rewrites para SPA
    - **Root Directory**: `backend`
    - **Build Command**: (dejar vacío, no es necesario para Node)
    - **Output Directory**: (dejar vacío)
-4. Vercel detectará `backend/api/index.js` como la función serverless y `backend/vercel.json` para las rutas.
+4. Vercel detectará `backend/api/index.js` como la función serverless y expone
+   todo `/api/*` automáticamente. **No hace falta `vercel.json`**: se eliminó
+   porque el bloque `functions` pedía un runtime en formato `nodejs20.x` y el
+   schema actual de Vercel exige `<runtime>@<version>` (`invalid_function_runtime`).
+   - **Verificá la versión de Node en** Settings → General → Node.js version
+     (18 está en fin de vida; usá 20 o superior).
+   - **Si el proyecto tiene el Root Directory en `backend`**, las variables de
+     entorno del proyecto llegan tal cual a la función. El backend acepta
+     `DATABASE_URL` o `SUPABASE_DB_URL`, y `SECRET_KEY` o `JWT_SECRET`.
+   - **No definás `PORT`**: lo asigna Vercel.
+   - `DATABASE_SSL` no hace falta: sin esa variable el servidor usa
+     `{ rejectUnauthorized: false }`, que es SSL activo y es lo que exige
+     Supabase.
 5. Agrega las **Variables de Entorno** obligatorias en
    *Settings → Environment Variables*. El nombre debe ser **exacto**: son las
    que lee el código (`process.env.X`).
@@ -52,7 +64,6 @@ El archivo `frontend/vercel.json` ya está configurado con los rewrites para SPA
    |---|---|
    | `DATABASE_URL` | `postgresql://postgres.<ref>:<clave>@aws-0-<regiona>.pooler.supabase.com:5432/postgres` |
    | `SECRET_KEY` | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-   | `ADMIN_INITIAL_PASSWORD` | contraseña del admin inicial (solo se usa la primera vez) |
    | `CORS_ORIGIN` | `https://tu-frontend.vercel.app` |
 
    > **Usa el pooler de Supabase** (`aws-0-<regiona>.pooler.supabase.com`, usuario
@@ -63,12 +74,23 @@ El archivo `frontend/vercel.json` ya está configurado con los rewrites para SPA
    > cualquiera con la `service_role` podría firmar un token de administrador
    > y la API lo aceptaría. Es una clave propia de esta API.
    >
-   > No hace falta definir `PORT` (lo asigna Vercel) ni `DATABASE_SSL` (si no
-   > está definido, el servidor usa `rejectUnauthorized: false`, que es SSL
-   > activo y es lo que exige Supabase).
+   > `ADMIN_INITIAL_PASSWORD` ya no hace falta: el alta de usuarios se hace
+   > contra Supabase Auth.
 6. Haz clic en **Deploy**.
 7. **Redeploy** después de cambiar variables: no se aplican a despliegues ya
    hechos (Deployments → ⋯ → Redeploy).
+
+### Comprobar que quedó bien
+
+```bash
+curl -s https://tu-backend.vercel.app/api/health
+```
+
+| Respuesta | Significado |
+|---|---|
+| `{"ok":true,...,"db":"ok"}` | Todo bien |
+| `{"ok":false,"faltan":["DATABASE_URL","SECRET_KEY"],...}` | Faltan variables: el mensaje dice cuáles |
+| `FUNCTION_INVOCATION_FAILED` (500 sin cuerpo) | La función crashea: mirá los logs del deployment |
 
 El backend queda expuesto en `https://tu-backend.vercel.app/api/...`
 
