@@ -73,4 +73,7 @@ Desktop.ini
 *~
 # vercel.json del root: Vercel despliega desde frontend/, donde si hay
 # package.json. En la raiz Vercel no detecta el proyecto.
-vercel.json
+# La barra inicial es importante: sin ella el patron tambien ignoraba
+# backend/vercel.json, que SI debe estar versionado (Vercel lo necesita
+# para saber que funcion es la serverless y que rutas exponer).
+/vercel.json
