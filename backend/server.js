@@ -17,7 +17,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { parseRowData, idValido, esPrivilegiado } = require('./lib/helpers');
 const { cabecerasSeguras, cabecerasCSP, crearLimitadorLogin, tablaEnBlanco, crearLimitadorGeneral, sanitizarObjeto } = require('./lib/security');
-const { validarEntradaLogin, autenticarUsuario } = require('./lib/auth');
+// La autenticacion vive en Supabase Auth; ver el POST /api/login (retirado).
+// lib/auth.js conserva el helper por si se lo necesita en un script.
 const { exigirAdmin } = require('./lib/authz');
 const {
   validarEsquemaRespaldo,
@@ -330,20 +331,35 @@ const limitadorLogin = crearLimitadorLogin();
 // Limitador general para todos los endpoints protegidos (anti-abuso, DoS ligero).
 const limitadorGeneral = crearLimitadorGeneral({ ventanaMs: 60 * 1000, maxIntentos: 120, bloqueoMs: 60 * 1000 });
 
-app.post('/api/login', limitadorLogin, async (req, res) => {
-  const entrada = validarEntradaLogin(req.body);
-  if (!entrada.ok) {
-    return res.status(401).json({ error: 'Credenciales incorrectas' });
-  }
-  try {
-    const resultado = await autenticarUsuario(pool, entrada, SECRET_KEY);
-    if (!resultado.ok) {
-      return res.status(401).json({ error: resultado.error });
-    }
-    res.json({ token: resultado.token, user: resultado.user });
-  } catch (err) {
-    enviarError(res, err);
-  }
+// ---------------------------------------------------------------------------
+// POST /api/login — RETIRADO (410 Gone)
+//
+// Antes este endpoint autenticaba contra la columna `usuarios.password`, que
+// era el esquema de auth anterior a Supabase Auth. Quedo como un segundo camino
+// de autenticacion mas debil que el de verdad:
+//
+//   - La app (frontend) autentica con Supabase Auth. La columna `password` de
+//     `public.usuarios` es un residuo: la app borra el password antes de
+//     insertar el perfil (useFcModals.js), asi que los usuarios creados por la
+//     app ni siquiera la tienen.
+//   - La RPC `verificar_login` (mismo esquema legacy) quedo revocada para el
+//     rol anon en la migracion 002.
+//   - Mantener un camino de login paralelo significa dos lugares donde
+//     autenticar, con reglas distintas.
+//
+// Se responde 410 con la explicacion en vez de un 500 mudo, para que quede
+// claro que el cambio es a proposito.
+//
+// Para autenticar, usar Supabase Auth:
+//   POST {SUPABASE_URL}/auth/v1/token?grant_type=password
+//   { "email": "<usuario>@unp.edu.py", "password": "..." }
+// ---------------------------------------------------------------------------
+app.post('/api/login', limitadorLogin, (req, res) => {
+  return res.status(410).json({
+    error: 'Este endpoint fue retirado.',
+    motivo: 'La autenticacion del sistema es la de Supabase Auth, no la de este API.',
+    usar: 'POST {SUPABASE_URL}/auth/v1/token?grant_type=password con { "email": "<usuario>@unp.edu.py", "password": "..." }'
+  });
 });
 
 app.use('/api', limitadorGeneral);

@@ -16,9 +16,108 @@
 --     existe, así que el script no puede abortar.
 --   - Incluye los deltas de columnas que el código del frontend y del backend
 --     esperan pero que faltaban en la base (ver sección 2).
+--   - Crea TODAS las tablas que usa la app, no solo las que creaba el backend.
+--     Antes faltaban notificaciones, funcionarios, dependencias, ubicaciones y
+--     app_config, y `usuarios.dependencia`: en una base nueva el frontend
+--     fallaba contra tablas inexistentes.
 -- ============================================================================
 
 BEGIN;
+
+-- -----------------------------------------------------------------------------
+-- 0) Tablas base del sistema.
+--    `envoltura` JSONB salvo en `usuarios` y `funcionarios`, que son planas
+--    (el frontend las lee por columnas).
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS bens (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS fc10 (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS fc11 (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS fc04 (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS estructuras (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  username TEXT PRIMARY KEY,
+  nombre TEXT,
+  password TEXT,
+  cargo TEXT,
+  dependencia TEXT
+);
+
+CREATE TABLE IF NOT EXISTS auditoria (
+  id TEXT PRIMARY KEY,
+  tipoRegistro TEXT,
+  usuarioDestino TEXT,
+  titulo TEXT,
+  mensaje TEXT,
+  leido INTEGER,
+  fecha TEXT,
+  bienId TEXT,
+  accion TEXT,
+  usuario TEXT,
+  dependencia TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notificaciones (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS funcionarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cedula TEXT,
+  nombre TEXT,
+  cargo TEXT,
+  dependencia TEXT,
+  ubicacion TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dependencias (
+  id TEXT PRIMARY KEY,
+  nombre TEXT,
+  codigo TEXT,
+  activa BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ubicaciones (
+  id TEXT PRIMARY KEY,
+  data JSONB,
+  nombre TEXT,
+  dependencia TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- El backend se conecta con el rol postgres, que ignora el RLS: la columna
+-- `password` queda fuera del alcance de los autenticados por la migracion 005.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS dependencia TEXT;
 
 -- -----------------------------------------------------------------------------
 -- 1) Tabla de configuración global (modo mantenimiento, versión, avisos)

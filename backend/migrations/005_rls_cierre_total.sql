@@ -71,6 +71,7 @@ REVOKE SELECT ON public.usuarios FROM anon;
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo auditoria" ON public.auditoria;
 
+DROP POLICY IF EXISTS "Auditoria: privileged leen todo, el resto su dependencia" ON public.auditoria;
 CREATE POLICY "Auditoria: privileged leen todo, el resto su dependencia"
   ON public.auditoria
   FOR SELECT TO authenticated
@@ -79,6 +80,7 @@ CREATE POLICY "Auditoria: privileged leen todo, el resto su dependencia"
     OR lower(coalesce(auditoria.dependencia, '')) = lower(coalesce(public.dependencia_actual(), ''))
   );
 
+DROP POLICY IF EXISTS "Auditoria: cada quien registra lo suyo" ON public.auditoria;
 CREATE POLICY "Auditoria: cada quien registra lo suyo"
   ON public.auditoria
   FOR INSERT TO authenticated
@@ -88,12 +90,14 @@ CREATE POLICY "Auditoria: cada quien registra lo suyo"
     OR lower(coalesce(auditoria.usuario, '')) = lower(coalesce(public.usuario_actual(), ''))
   );
 
+DROP POLICY IF EXISTS "Auditoria: privileged modifican" ON public.auditoria;
 CREATE POLICY "Auditoria: privileged modifican"
   ON public.auditoria
   FOR UPDATE TO authenticated
   USING (public.es_privilegiado_actual())
   WITH CHECK (public.es_privilegiado_actual());
 
+DROP POLICY IF EXISTS "Auditoria: privileged borran" ON public.auditoria;
 CREATE POLICY "Auditoria: privileged borran"
   ON public.auditoria
   FOR DELETE TO authenticated
@@ -108,6 +112,7 @@ CREATE POLICY "Auditoria: privileged borran"
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo notificaciones" ON public.notificaciones;
 
+DROP POLICY IF EXISTS "Notificaciones: privileged leen todo, el resto su dependencia" ON public.notificaciones;
 CREATE POLICY "Notificaciones: privileged leen todo, el resto su dependencia"
   ON public.notificaciones
   FOR SELECT TO authenticated
@@ -116,6 +121,7 @@ CREATE POLICY "Notificaciones: privileged leen todo, el resto su dependencia"
     OR lower(coalesce(notificaciones.data->>'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
   );
 
+DROP POLICY IF EXISTS "Notificaciones: cada quien registra en su dependencia" ON public.notificaciones;
 CREATE POLICY "Notificaciones: cada quien registra en su dependencia"
   ON public.notificaciones
   FOR INSERT TO authenticated
@@ -125,6 +131,7 @@ CREATE POLICY "Notificaciones: cada quien registra en su dependencia"
     OR lower(coalesce(notificaciones.data->>'solicitante', '')) = lower(coalesce(public.usuario_actual(), ''))
   );
 
+DROP POLICY IF EXISTS "Notificaciones: cada quien gestiona las de su dependencia" ON public.notificaciones;
 CREATE POLICY "Notificaciones: cada quien gestiona las de su dependencia"
   ON public.notificaciones
   FOR UPDATE TO authenticated
@@ -137,6 +144,7 @@ CREATE POLICY "Notificaciones: cada quien gestiona las de su dependencia"
     OR lower(coalesce(notificaciones.data->>'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
   );
 
+DROP POLICY IF EXISTS "Notificaciones: cada quien purga las de su dependencia" ON public.notificaciones;
 CREATE POLICY "Notificaciones: cada quien purga las de su dependencia"
   ON public.notificaciones
   FOR DELETE TO authenticated

@@ -80,19 +80,49 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 
 ## Scripts utiles
 
+### Frontend
+
 | Comando | Que hace |
 |---|---|
 | `npm run lint` | oxlint sobre el frontend |
 | `npm test` | Pruebas unitarias (node:test) |
 | `npm run build` | Build de produccion en `frontend/dist` |
 
+### Backend
+
+| Comando | Que hace |
+|---|---|
+| `npm start` | Levanta la API (Express + Socket.io) |
+| `npm test` | Pruebas unitarias **y de autorizacion** (24 tests) |
+| `npm run db:setup` | Aplica las migraciones 001→005 en orden. Es idempotente: se puede re-correr |
+| `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
+
+```bash
+cd backend
+npm run db:setup
+npm run db:crear-cuenta jsanchez
+```
+
 ## Esquema de base de datos
 
-El esquema real vive en Supabase, no en este repositorio.
+El esquema real vive en Supabase, no en este repositorio, pero las
+migraciones si estan versionadas en `backend/migrations/` y son la fuente de
+verdad de como se arma:
+
+| Migracion | Que hace |
+|---|---|
+| `001_esquema_inicial.sql` | Tablas, indices y deltas de columnas |
+| `002_seguridad_rls.sql` | Cierra el acceso anonimo a `funcionarios` y a la RPC `verificar_login` |
+| `003_rls_por_dependencia.sql` | Un funcionario solo ve los bienes, actas y auditoria de SU dependencia |
+| `004_rls_bens_publico.sql` | Cierra el acceso anonimo a la tabla `bens` (la vista publica del QR sigue por la RPC `obtener_bien_publico`) |
+| `005_rls_cierre_total.sql` | Cierra `usuarios.password`, la auditoria y las notificaciones para los autenticados |
+
 `respaldo_esquema.sql` esta vacio a proposito y documenta como regenerarlo con
 `pg_dump`. Las tablas son `bens`, `fc10`, `fc11`, `fc04`, `estructuras`,
-`usuarios` y `auditoria`; salvo `usuarios` y `auditoria`, cada una guarda el
-registro completo dentro de una columna JSONB `data`.
+`usuarios`, `auditoria`, `notificaciones`, `funcionarios`, `dependencias`,
+`ubicaciones` y `app_config`; salvo `usuarios`, `funcionarios`, `dependencias`
+y `ubicaciones`, cada una guarda el registro completo dentro de una columna
+JSONB `data`.
 
 ## Notas de seguridad
 
