@@ -203,6 +203,24 @@ async function upsertJson(tabla, id, cuerpo) {
   );
 }
 
+// Datos de la conexión, SIN la contraseña: para poder comparar de un vistazo
+// si el secreto del proyecto apunta al host y al usuario correctos.
+const conexionResumen = () => {
+  if (!databaseUrl) return null;
+  try {
+    const u = new URL(databaseUrl);
+    return {
+      host: u.hostname,
+      puerto: u.port || '5432',
+      usuario: decodeURIComponent(u.username || ''),
+      base_de_datos: (u.pathname || '/postgres').replace(/^\//, '') || 'postgres',
+      ssl: databaseUrl.startsWith('postgresql://') && !databaseUrl.includes('sslmode=disable') ? 'si' : 'revisar'
+    };
+  } catch (e) {
+    return { error: 'DATABASE_URL no es una URL valida' };
+  }
+};
+
 // Raíz: identificar el servicio. Antes caía en un 500 porque la función se
 // montaba también en "/" sin tener ruta para eso.
 app.get('/', (_req, res) => {
@@ -222,7 +240,8 @@ app.get('/api/health', async (_req, res) => {
     configuracion_completa: FALTAN_CONFIG.length === 0,
     faltan: FALTAN_CONFIG,
     env: process.env.VERCEL_ENV || 'local',
-    version: '2.3'
+    version: '2.3',
+    conexion: conexionResumen()
   };
   if (FALTAN_CONFIG.length) {
     return res.status(503).json({
@@ -235,7 +254,14 @@ app.get('/api/health', async (_req, res) => {
     await pool.query('SELECT 1');
     return res.json({ ...base, db: 'ok' });
   } catch (err) {
-    return res.status(503).json({ ...base, ok: false, db: 'error', error: err.message });
+    return res.status(503).json({
+      ...base,
+      ok: false,
+      db: 'error',
+      error: err.message,
+      pista: 'Si el error es "password authentication failed", la contraseña del secreto no es la correcta. ' +
+             'La URL debe ser postgresql://postgres.xgactumwhukhjwggcmqs:<CONTRASENA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres'
+    });
   }
 });
 
