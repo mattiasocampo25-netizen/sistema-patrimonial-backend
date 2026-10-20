@@ -287,14 +287,21 @@ app.get('/api/health', async (_req, res) => {
     await pool.query('SELECT 1');
     return res.json({ ...base, db: 'ok' });
   } catch (err) {
-    return res.status(503).json({
-      ...base,
-      ok: false,
-      db: 'error',
-      error: err.message,
-      pista: 'Si el error es "password authentication failed", la contraseña del secreto no es la correcta. ' +
-             'La URL debe ser postgresql://postgres.xgactumwhukhjwggcmqs:<CONTRASENA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres'
-    });
+    const pista = (() => {
+      const c = conexionResumen();
+      const esDirecto = c && String(c.host || '').startsWith('db.');
+      if (esDirecto) {
+        return 'El host directo de Supabase (' + c.host + ') es IPv6-only y no resuelve desde Vercel. ' +
+               'Usá el POOLER: postgresql://postgres.xgactumwhukhjwggcmqs:<CONTRASENA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres ' +
+               '(la contraseña que tenés ya es correcta: solo cambiá el host y el usuario).';
+      }
+      if (/password authentication failed/i.test(err.message)) {
+        return 'La contraseña del secreto no es la correcta. ' +
+               'La URL debe ser postgresql://postgres.xgactumwhukhjwggcmqs:<CONTRASENA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres';
+      }
+      return 'La URL debe ser postgresql://postgres.xgactumwhukhjwggcmqs:<CONTRASENA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres';
+    })();
+    return res.status(503).json({ ...base, ok: false, db: 'error', error: err.message, pista });
   }
 });
 
