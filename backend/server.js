@@ -65,10 +65,36 @@ app.use(cabecerasCSP);
 app.use(cors(corsOpts));
 app.use(express.json({ limit: '2mb' }));
 
+// ---------------------------------------------------------------------------
+// Normalizacion de la URL de la base.
+//
+// Pegar el valor en el panel de Vercel arrastra a veces saltos de linea,
+// espacios o comillas: la URL sigue siendo "valida" pero la contrasena queda
+// con caracteres de mas y Postgres la rechaza con "password authentication
+// failed". Se limpian antes de usarla.
+// ---------------------------------------------------------------------------
+const limpiarUrlBd = (valor) => {
+  const bruto = String(valor || '').trim();
+  try {
+    const u = new URL(bruto);
+    if (u.password) {
+      u.password = decodeURIComponent(u.password)
+        .replace(/[\r\n\t]/g, '')
+        .replace(/^["'`]+|["'`]+$/g, '')
+        .trim();
+    }
+    return u.toString();
+  } catch (e) {
+    return bruto.replace(/[\r\n\t]/g, '').trim();
+  }
+};
+
 // Se aceptan varios nombres para la URL: el proyecto de Vercel puede tenerla
 // como DATABASE_URL, SUPABASE_DB_URL o supabase_db_url (la configuración
 // anterior). Ver primerValor() arriba.
-const databaseUrl = primerValor('DATABASE_URL', 'SUPABASE_DB_URL', 'supabase_db_url', 'POSTGRES_URL');
+const databaseUrl = limpiarUrlBd(
+  primerValor('DATABASE_URL', 'SUPABASE_DB_URL', 'supabase_db_url', 'POSTGRES_URL')
+);
 
 // ---------------------------------------------------------------------------
 // Falta de configuracion.
@@ -217,7 +243,11 @@ const conexionResumen = () => {
       ssl: databaseUrl.startsWith('postgresql://') && !databaseUrl.includes('sslmode=disable') ? 'si' : 'revisar',
       // Solo la longitud: alcanza para detectar un pegado truncado o con
       // caracteres de mas, y no revela nada de la contrasena.
-      longitud_contrasena: (u.password || '').length
+      longitud_contrasena: (u.password || '').length,
+      // Codigos ASCII de los ultimos caracteres de la contrasena: delatan un
+      // salto de linea (10/13), un espacio (32) o una comilla (34/39/96)
+      // que se colaron al pegar, sin revelar la contrasena.
+      codigos_finales: (u.password || '').slice(-4).split('').map((c) => c.charCodeAt(0))
     };
   } catch (e) {
     return { error: 'DATABASE_URL no es una URL valida' };
