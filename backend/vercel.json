@@ -3,5 +3,11 @@
     "api/index.js": {
       "runtime": "nodejs20.x"
     }
+  },
+  "env": {
+    "DATABASE_URL": "@supabase_db_url",
+    "SECRET_KEY": "@app_jwt_secret",
+    "ADMIN_INITIAL_PASSWORD": "@admin_password",
+    "CORS_ORIGIN": "@cors_origin"
   }
 }

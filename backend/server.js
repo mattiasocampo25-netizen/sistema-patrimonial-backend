@@ -46,7 +46,10 @@ app.use(cabecerasCSP);
 app.use(cors(corsOpts));
 app.use(express.json({ limit: '2mb' }));
 
-const databaseUrl = process.env.DATABASE_URL;
+// Se acepta también SUPABASE_DB_URL como alias: en Vercel el nombre de la
+// variable puede depender de como se haya creado el secreto, y con el nombre
+// equivocado la funcion muere al arrancar con un 500 sin explicar nada.
+const databaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
 if (!databaseUrl) {
   console.error('❌ Falta la variable de entorno DATABASE_URL. Copia .env.example a .env y completa la URL de conexión.');
   process.exit(1);
