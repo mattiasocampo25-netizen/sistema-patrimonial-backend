@@ -103,14 +103,60 @@ usuarios, el modal "Novedades de la vX".
 
 Hasta la v2.12.1 hubo un segundo proyecto en Vercel con el Root Directory
 `backend` que publicaba la API Express. **Ya no hay nada que publicar**, así
-que hay que desactivarlo:
+que hay que desactivarlo.
 
-1. En Vercel, abrí el proyecto del backend.
-2. **Settings → Git → Disconnect** (o **Deployments → … → Remove**).
-3. Opcionalmente, borrá el proyecto entero.
+### 5.1 Identificar el proyecto correcto
 
-Mientras siga conectado, cada push a la raíz dispara un despliegue que falla
-por falta de `api/index.js`. No rompe nada, pero ensucia los logs.
+En el dashboard de Vercel (<https://vercel.com/dashboard>) hay dos
+proyectos. El que hay que tocar es el que:
+
+- se llama como el repositorio **`sistema-patrimonial-backend`** (el de la
+  raíz, NO el del frontend), y
+- en **Settings → Build & Development Settings → Root Directory** dice
+  `backend`.
+
+El que hay que **dejar intacto** es el del frontend
+(`sistema-patrimonial-frontend`), que es el que se está publicando.
+
+### 5.2 Desconectar el repositorio
+
+1. Entrá al proyecto del backend.
+2. Pestaña **Settings** (el engranaje) → sección **Git**.
+3. Botón **Disconnect** (o "Desconectar"). Confirmá.
+
+Esto alcanza: el proyecto queda sin repositorio y los pushes ya no disparan
+despliegues. **Mientras no lo hagas, cada push a la raíz dispara un build
+que falla por falta de `api/index.js`** — no rompe nada, pero llena los logs
+de errores y consume minutos de build.
+
+### 5.3 Borrar las variables de entorno (importante)
+
+El proyecto todavía tiene las credenciales de la base guardadas:
+
+1. **Settings → Environment Variables**.
+2. Borrar `DATABASE_URL`, `SECRET_KEY` y `CORS_ORIGIN`.
+
+`DATABASE_URL` contiene el usuario y la contraseña de PostgreSQL de
+producción. Aunque el proyecto no se publique, conviene que no queden ahí
+guardados.
+
+### 5.4 (Opcional) Eliminar el proyecto entero
+
+Si no se va a volver a usar ese proyecto:
+
+1. **Settings → General** → abajo del todo, **Delete Project**.
+2. Vercel pide escribir el nombre del proyecto para confirmar.
+
+Si el plan de Vercel es de pago, también se puede pausar desde
+**Settings → General → Pause Project**, que es reversible y más barato que
+borrar.
+
+### 5.5 El repositorio de GitHub
+
+Se puede dejar como está: el repo `sistema-patrimonial-backend` sigue
+existiendo con las migraciones y los scripts, y el `origin` apunta
+correctamente. Renombrarlo es opcional (ver "Renombrar el repositorio" más
+abajo).
 
 ---
 
@@ -134,3 +180,20 @@ por falta de `api/index.js`. No rompe nada, pero ensucia los logs.
 | El QR público no carga | La RPC `obtener_bien_publico` no existe: correr `npm run db:setup` |
 | El despliegue de Vercel falla | Se está publicada la raíz: el proyecto de Vercel del backend hay que desconectarlo (Paso 5) |
 | Un funcionario ve datos de otra dependencia | El RLS no está aplicado o la sesión quedó cacheada en el navegador: recargar con `Ctrl+F5` |
+
+---
+
+## Renombrar el repositorio (opcional)
+
+El repositorio de GitHub se llama `sistema-patrimonial-backend` pero ya no
+contiene un backend: contiene la base de datos (migraciones, scripts y
+pruebas). Renombrarlo es opcional y son tres cosas:
+
+1. En GitHub: **Settings → General → Repository name** → `sistema-patrimonial-db`
+   (GitHub redirige el remoto anterior).
+2. Local: `git remote set-url origin <URL nueva>`.
+3. En Vercel (si se conserva el proyecto): **Settings → Git → Disconnect** y
+   volver a conectar con la URL nueva. Si el proyecto se desconectó en el
+   paso 5, no hace falta.
+
+Los commits no cambian: el historial es el mismo.
