@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "test": "node --test",
     "db:setup": "node scripts/setup-db.js",
-    "db:crear-cuenta": "node scripts/crear-cuenta-auth.js"
+    "db:crear-cuenta": "node scripts/crear-cuenta-auth.js",
+    "aviso:iniciar": "node scripts/aviso-mantenimiento.js iniciar",
+    "aviso:cerrar": "node scripts/aviso-mantenimiento.js cerrar"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

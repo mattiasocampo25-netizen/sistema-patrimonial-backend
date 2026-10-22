@@ -94,14 +94,49 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 |---|---|
 | `npm start` | Levanta la API (Express + Socket.io) |
 | `npm test` | Pruebas unitarias **y de autorizacion** (24 tests) |
-| `npm run db:setup` | Aplica las migraciones 001→005 en orden. Es idempotente: se puede re-correr |
+| `npm run db:setup` | Aplica las migraciones 001→011 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
+| `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
+| `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.12.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la version nueva |
 
 ```bash
 cd backend
 npm run db:setup
 npm run db:crear-cuenta jsanchez
 ```
+
+## Procedimiento de aviso (modo mantenimiento)
+
+Toda vez que se toque la base de datos o el codigo, el sistema tiene que avisar
+a los usuarios. El script `backend/scripts/aviso-mantenimiento.js` deja el
+estado en `app_config` alineado con lo que la interfaz muestra:
+
+**1. Al empezar el trabajo** (el muro se levanta, lo ve cualquiera sin sesion):
+
+```bash
+npm run aviso:iniciar -- --mensaje "El acceso esta pausado mientras se corrigen las politicas de seguridad." \
+  --mejoras "Cerrando la exposicion del padron de funcionarios;Restringiendo la escritura de catalogos"
+```
+
+**2. Al terminar** (se baja el muro y se publica el aviso de mejoras hechas):
+el frontend detecta el cambio de `ultima_version` y abre solo, para todos los
+usuarios, el modal "Novedades de la vX" (`App.jsx:161`).
+
+```bash
+npm run aviso:cerrar -- --mensaje "Las mejoras ya estan aplicadas." \
+  --mejoras "El padron de funcionarios quedo acotado por dependencia;La escritura de catalogos quedo restringida a administradores" \
+  --version 2.12.0
+```
+
+Los campos que se tocan en `app_config`:
+
+| Campo | Que muestra |
+|---|---|
+| `en_mantenimiento` | El muro (`MaintenanceScreen`), sin sesion |
+| `mensaje` | El texto del muro |
+| `mejoras` | La lista de **mejoras en curso** (se ve en el muro) |
+| `ultima_version` | La version; al cambiarla se abre el changelog |
+| `notas_version` | El **aviso de mejoras hechas** de esa version (el changelog) |
 
 ## Esquema de base de datos
 
@@ -116,6 +151,12 @@ verdad de como se arma:
 | `003_rls_por_dependencia.sql` | Un funcionario solo ve los bienes, actas y auditoria de SU dependencia |
 | `004_rls_bens_publico.sql` | Cierra el acceso anonimo a la tabla `bens` (la vista publica del QR sigue por la RPC `obtener_bien_publico`) |
 | `005_rls_cierre_total.sql` | Cierra `usuarios.password`, la auditoria y las notificaciones para los autenticados |
+| `006_rpc_resumen_dependencias.sql` | RPC con los conteos por dependencia (evita traer 13.000 filas al navegador) |
+| `007_rpc_guardar_usuario.sql` | RPC de alta y edicion de usuarios (la tabla tiene SELECT por columna) |
+| `008_rls_usuarios_escritura.sql` | La escritura de `usuarios` solo para administradores (evita la escalada de privilegios) |
+| `009_rls_funcionarios_dependencia.sql` | Cierra el padron de funcionarios por dependencia (cedulas) y acota la lectura de `usuarios` |
+| `010_rls_catalogos_privilegiados.sql` | La escritura de `dependencias`, `ubicaciones`, `estructuras` y `app_config` solo para privilegiados |
+| `011_rpc_permisos_anon.sql` | Quita el `EXECUTE` sobre `anon` de las funciones `SECURITY DEFINER` (la del QR publico queda) |
 
 `respaldo_esquema.sql` esta vacio a proposito y documenta como regenerarlo con
 `pg_dump`. Las tablas son `bens`, `fc10`, `fc11`, `fc04`, `estructuras`,
