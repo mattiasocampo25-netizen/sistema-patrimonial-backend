@@ -2,7 +2,7 @@
 -- 011_rpc_permisos_anon.sql
 -- Quita el EXECUTE sobre anon de las funciones SECURITY DEFINER.
 --
--- QUE PASABA (auditoria 2026-10-22, sobre el estado real de produccion)
+-- QUÉ PASABA (auditoría 2026-10-22, sobre el estado real de producción)
 -- ---------------------------------------------------------------------------
 -- Las migraciones 003, 005, 006 y 007 crean funciones `SECURITY DEFINER` y
 -- hacen `REVOKE ALL ... FROM PUBLIC` + `GRANT EXECUTE ... TO authenticated`.
@@ -18,33 +18,33 @@
 -- O sea: `anon` puede ejecutarlas, y tres de ellas siguen con el permiso
 -- abierto a PUBLIC (`=X/postgres`).
 --
--- Por que paso: los `ALTER DEFAULT PRIVILEGES` de Supabase en el esquema
+-- Por qué pasó: los `ALTER DEFAULT PRIVILEGES` de Supabase en el esquema
 -- `public` otorgan EXECUTE sobre las funciones nuevas a `anon`,
--- `authenticated` y `service_role`. Esos defaults se aplican DESPUES del
--- `CREATE OR REPLACE FUNCTION` de cada migracion, en el mismo despliegue, y
--- por eso el `REVOKE` de la migracion se queda corto: hay que revocar de
--- nuevo, contra el rol concreto, DESPUES de que la funcion exista.
+-- `authenticated` y `service_role`. Esos defaults se aplican DESPUÉS del
+-- `CREATE OR REPLACE FUNCTION` de cada migración, en el mismo despliegue, y
+-- por eso el `REVOKE` de la migración se queda corto: hay que revocar de
+-- nuevo, contra el rol concreto, DESPUÉS de que la función exista.
 --
--- IMPACTO REAL (verificado, no teorico)
+-- IMPACTO REAL (verificado, no teórico)
 -- ---------------------------------------------------------------------------
--- Ninguno directo: las funciones se auto-protegen.
+-- Ninguno directo: las funciones se autoprotegen.
 --   - `admin_guardar_usuario` -> `es_privilegiado_actual()` devuelve false
---     sin sesion y la funcion lanza 42501 ("solo un administrador puede
+--     sin sesión y la función lanza 42501 ("solo un administrador puede
 --     guardar usuarios").
---   - `resumen_por_dependencia` -> sin sesion devuelve `[]`.
---   - las cuatro funciones de contexto devuelven NULL sin sesion.
+--   - `resumen_por_dependencia` -> sin sesión devuelve `[]`.
+--   - las cuatro funciones de contexto devuelven NULL sin sesión.
 --
--- Pero "se auto-protegen" no es lo mismo que "no se pueda llamar": la
--- superficie queda abierta para un atacante que encuentre otra combinacion
--- (un `search_path` manipulado, un cambio futuro en el cuerpo de la funcion,
+-- Pero "se autoprotegen" no es lo mismo que "no se pueda llamar": la
+-- superficie queda abierta para un atacante que encuentre otra combinación
+-- (un `search_path` manipulado, un cambio futuro en el cuerpo de la función,
 -- o simplemente una llamada que sí devuelva datos). Lo que hace esta
--- migracion es dejar la superficie en cero en vez de confiar en el codigo.
+-- migración es dejar la superficie en cero en vez de confiar en el código.
 --
--- EXCEPCION INTENCIONAL
+-- EXCEPCIÓN INTENCIONAL
 -- ---------------------------------------------------------------------------
--- `obtener_bien_publico` SI debe quedar ejecutable por `anon`: es la que
--- atiende la vista publica del QR, que existe justamente para visitantes sin
--- sesion. Se le deja EXECUTE para anon y authenticated.
+-- `obtener_bien_publico` SÍ debe quedar ejecutable por `anon`: es la que
+-- atiende la vista pública del QR, que existe justamente para visitantes sin
+-- sesión. Se le deja EXECUTE para anon y authenticated.
 --
 -- Idempotente. Aplicar con el rol `postgres`:
 --   psql "$DATABASE_URL" -f backend/migrations/011_rpc_permisos_anon.sql
@@ -54,7 +54,7 @@ BEGIN;
 
 -- -----------------------------------------------------------------------------
 -- 1) Funciones de contexto.
---    `authenticated` las necesita: lasPolicies RLS las invocan al evaluar
+--    `authenticated` las necesita: las políticas RLS las invocan al evaluar
 --    cada fila (migraciones 003 y 005).
 -- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.cargo_actual() FROM PUBLIC;
@@ -74,7 +74,7 @@ REVOKE EXECUTE ON FUNCTION public.usuario_actual() FROM anon;
 GRANT  EXECUTE ON FUNCTION public.usuario_actual() TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- 2) RPC de resumen y de alta de usuarios: solo para quien tiene sesion.
+-- 2) RPC de resumen y de alta de usuarios: solo para quien tiene sesión.
 -- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.resumen_por_dependencia() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.resumen_por_dependencia() FROM anon;
@@ -85,21 +85,21 @@ REVOKE EXECUTE ON FUNCTION public.admin_guardar_usuario(text, text, text, text) 
 GRANT  EXECUTE ON FUNCTION public.admin_guardar_usuario(text, text, text, text) TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- 3) La vista publica del QR: EXECUTE para anon, a proposito.
+-- 3) La vista pública del QR: EXECUTE para anon, a propósito.
 -- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.obtener_bien_publico(text) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.obtener_bien_publico(text) TO anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 4) `verificar_login` quedo revocada para PUBLIC y anon en la migracion 002
+-- 4) `verificar_login` quedó revocada para PUBLIC y anon en la migración 002
 --    (proacl: {postgres=X, authenticated=X, service_role=X}). Se deja como
---    esta: no se usa desde la app y no se le abre nada.
+--    está: no se usa desde la app y no se le abre nada.
 -- -----------------------------------------------------------------------------
 
 COMMIT;
 
 -- =============================================================================
--- COMO VERIFICAR (sin tocar nada):
+-- CÓMO VERIFICAR (sin tocar nada):
 --
 --   SELECT p.proname, p.proacl::text
 --   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

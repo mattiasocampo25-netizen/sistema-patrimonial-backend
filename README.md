@@ -114,8 +114,8 @@ estado en `app_config` alineado con lo que la interfaz muestra:
 **1. Al empezar el trabajo** (el muro se levanta, lo ve cualquiera sin sesion):
 
 ```bash
-npm run aviso:iniciar -- --mensaje "El acceso esta pausado mientras se corrigen las politicas de seguridad." \
-  --mejoras "Cerrando la exposicion del padron de funcionarios;Restringiendo la escritura de catalogos"
+npm run aviso:iniciar -- --mensaje "El acceso está pausado mientras se corrigen las políticas de seguridad." \
+  --mejoras "Cerrando la exposición del padrón de funcionarios;Restringiendo la escritura de catálogos"
 ```
 
 **2. Al terminar** (se baja el muro y se publica el aviso de mejoras hechas):
@@ -123,8 +123,8 @@ el frontend detecta el cambio de `ultima_version` y abre solo, para todos los
 usuarios, el modal "Novedades de la vX" (`App.jsx:161`).
 
 ```bash
-npm run aviso:cerrar -- --mensaje "Las mejoras ya estan aplicadas." \
-  --mejoras "El padron de funcionarios quedo acotado por dependencia;La escritura de catalogos quedo restringida a administradores" \
+npm run aviso:cerrar -- --mensaje "Las mejoras ya están aplicadas." \
+  --mejoras "El padrón de funcionarios quedó acotado por dependencia;La escritura de catálogos quedó restringida a administradores" \
   --version 2.12.0
 ```
 

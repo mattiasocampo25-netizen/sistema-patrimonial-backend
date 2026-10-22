@@ -1,10 +1,10 @@
 -- =============================================================================
 -- 010_rls_catalogos_privilegiados.sql
--- Cierra la escritura de los catalogos y del muro de mantenimiento.
+-- Cierra la escritura de los catálogos y del muro de mantenimiento.
 --
--- QUE PASABA (auditoria 2026-10-22, sobre el estado real de produccion)
+-- QUÉ PASABA (auditoría 2026-10-22, sobre el estado real de producción)
 -- ---------------------------------------------------------------------------
--- Las tablas de apoyo tenian la politica original "Autenticados todo X", que
+-- Las tablas de apoyo tenían la política original "Autenticados todo X", que
 -- es `cmd=ALL` con `TO public`. Eso no era solo una lectura generosa: era
 -- escritura para CUALQUIER usuario autenticado. Verificado con el JWT de un
 -- funcionario (cargo 'user'):
@@ -17,38 +17,38 @@
 --   DELETE estructuras    -> PERMITIDO
 --   UPDATE app_config     -> PERMITIDO   <-- el muro de mantenimiento
 --
--- El ultimo es el mas grave: `app_config` guarda `en_mantenamiento`, el
--- `mensaje` global y las `mejoras`. Un funcionario cualquiera podia dejar el
+-- El último es el más grave: `app_config` guarda `en_mantenimiento`, el
+-- `mensaje` global y las `mejoras`. Un funcionario cualquiera podía dejar el
 -- sistema en mantenimiento o cambiar el mensaje que ve toda la universidad.
 --
--- `app_config` tenia ademas la politica "Lectura publica app_config"
--- (`TO public`, `USING true`): el anonimo leia la configuracion global.
+-- `app_config` tenía además la política "Lectura publica app_config"
+-- (`TO public`, `USING true`): el anónimo leía la configuración global.
 --
--- QUE SE MANTIENE Y POR QUE
+-- QUÉ SE MANTIENE Y POR QUÉ
 -- ---------------------------------------------------------------------------
--- * LECTURA: se mantiene amplia a proposito. Son catalogos transversales sin
+-- * LECTURA: se mantiene amplia a propósito. Son catálogos transversales sin
 --   datos personales:
 --     - `dependencias` (8 filas): el selector de dependencia, el sidebar.
 --     - `estructuras` (48 filas): el organigrama oficial.
---     - `ubicaciones` (76 filas): el catalogo de ubicaciones. Se acota por
+--     - `ubicaciones` (76 filas): el catálogo de ubicaciones. Se acota por
 --       dependencia porque la columna existe, pero hoy las 76 son de
---       "Rectorado" y la UI ya las filtraba en cliente (App.jsx:338), asi que
+--       "Rectorado" y la UI ya las filtraba en cliente (App.jsx:338), así que
 --       no cambia lo que se ve.
---     - `app_config`: la lectura publica se mantiene A PROPOSITO. El muro de
+--     - `app_config`: la lectura pública se mantiene A PROPÓSITO. El muro de
 --       mantenimiento se consulta ANTES del login (useAuthSession.js:45), con
---       la anon key: si se cerrara, un visitante sin sesion no veria el aviso
+--       la anon key: si se cerrara, un visitante sin sesión no vería el aviso
 --       de mantenimiento. No contiene datos sensibles: solo el estado, el
---       mensaje y las notas de version.
+--       mensaje y las notas de versión.
 --
--- * ESCRITURA: se cierra a los roles privilegiados, que son los unicos que
---   la UI habilita (el boton "Ubicaciones" esta guardado con `isAdmin &&` en
+-- * ESCRITURA: se cierra a los roles privilegiados, que son los únicos que
+--   la UI habilita (el botón "Ubicaciones" está guardado con `isAdmin &&` en
 --   FuncionariosView.jsx:64 y el de dependencias, con `isAdmin` en AppSidebar).
 --
--- * EXCEPCION - `estructuras`: el INSERT se deja abierto. Al guardar un FC-10
+-- * EXCEPCIÓN - `estructuras`: el INSERT se deja abierto. Al guardar un FC-10
 --   el sistema agrega solo las unidades que faltan del organigrama
 --   (useFcModals.js:761, dentro de un `catch {}` silencioso). Cerrarlo no
---   romperia el FC-10, pero dejaria de crecer el catalogo. Lo que si se
---   cierra es UPDATE y DELETE, que si alteran el organigrama.
+--   rompería el FC-10, pero dejaría de crecer el catálogo. Lo que sí se
+--   cierra es UPDATE y DELETE, que sí alteran el organigrama.
 --
 -- Idempotente. Aplicar con el rol `postgres`:
 --   psql "$DATABASE_URL" -f backend/migrations/010_rls_catalogos_privilegiados.sql
@@ -57,7 +57,7 @@
 BEGIN;
 
 -- -----------------------------------------------------------------------------
--- 1) dependencias: catalogo maestro de la universidad.
+-- 1) dependencias: catálogo maestro de la universidad.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo dependencias" ON public.dependencias;
 
@@ -87,7 +87,7 @@ CREATE POLICY "Dependencias: solo privileged borran"
   USING (public.es_privilegiado_actual());
 
 -- -----------------------------------------------------------------------------
--- 2) ubicaciones: el catalogo tiene columna `dependencia`, asi que la lectura
+-- 2) ubicaciones: el catálogo tiene columna `dependencia`, así que la lectura
 --    se acota con el mismo criterio del resto del sistema.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo ubicaciones" ON public.ubicaciones;
@@ -122,7 +122,7 @@ CREATE POLICY "Ubicaciones: solo privileged borran"
 
 -- -----------------------------------------------------------------------------
 -- 3) estructuras: organigrama oficial.
---    INSERT abierto (compatibilidad con el alta automatica al guardar un
+--    INSERT abierto (compatibilidad con el alta automática al guardar un
 --    FC-10). UPDATE y DELETE solo para privilegiados.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo estructuras" ON public.estructuras;
@@ -156,8 +156,8 @@ CREATE POLICY "Estructuras: solo privileged borran"
 -- 4) app_config: el muro de mantenimiento.
 --
 --    Se retira "Autenticados todo app_config" (cmd=ALL: escritura para
---    cualquiera) y se reescribe la lectura publica con un nombre que diga
---    que es a proposito.
+--    cualquiera) y se reescribe la lectura pública con un nombre que diga
+--    que es a propósito.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Autenticados todo app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Lectura publica app_config" ON public.app_config;
@@ -190,7 +190,7 @@ CREATE POLICY "App config: solo privileged borran"
 COMMIT;
 
 -- =============================================================================
--- COMO VERIFICAR (sin tocar nada):
+-- CÓMO VERIFICAR (sin tocar nada):
 --
 --   BEGIN;
 --   SET LOCAL role authenticated;
@@ -200,7 +200,7 @@ COMMIT;
 --   UPDATE public.app_config SET en_mantenimiento = true WHERE id = 'global';
 --   --   => ERROR: new row violates row-level security policy
 --
---   -- el catalogo de dependencias ya no se puede tocar
+--   -- el catálogo de dependencias ya no se puede tocar
 --   DELETE FROM public.dependencias WHERE id = (SELECT id FROM public.dependencias LIMIT 1);
 --   --   => ERROR: new row violates row-level security policy
 --

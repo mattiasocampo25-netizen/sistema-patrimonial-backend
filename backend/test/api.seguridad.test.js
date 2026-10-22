@@ -23,6 +23,7 @@ const BASE = 'http://127.0.0.1:' + PUERTO;
 
 let srv = null;
 let jwt = null;
+let pool = null;
 let hayBD = false;
 
 const firmados = (username, role) =>
@@ -47,6 +48,15 @@ describe('autorizacion de la API', () => {
     require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
     if (!process.env.DATABASE_URL || !process.env.SECRET_KEY) return;
     jwt = require('jsonwebtoken');
+    // Pool directo a la base: la API se conecta como `postgres` (que salta el
+    // RLS), así que para limpiar lo que escribe la prueba hace falta ir
+    // directo.
+    const { Pool } = require('pg');
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 20000
+    });
     srv = spawn('node', [path.join(__dirname, '..', 'server.js')], {
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, PORT: String(PUERTO) },
@@ -64,8 +74,9 @@ describe('autorizacion de la API', () => {
     }
   });
 
-  after(() => {
+  after(async () => {
     if (srv) srv.kill();
+    if (pool) await pool.end();
   });
 
   // OJO: la opcion `skip` de node:test se evalua al REGISTRAR el test, o sea
@@ -144,5 +155,9 @@ describe('autorizacion de la API', () => {
       'lsanchez',
       'no se puede escribir una traza a nombre de otro usuario'
     );
+
+    // La prueba escribe una fila de auditoria: se borra al terminar para no
+    // dejar basura en la tabla en cada corrida.
+    await pool.query("DELETE FROM auditoria WHERE id LIKE 'forja-%'");
   });
 });
