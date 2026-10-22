@@ -105,6 +105,7 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
 | `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
 | `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la version nueva |
+| `npm run seguridad:simular` | Simulador de ataques: prueba por dónde intentaría robar datos o entrar un atacante (ver abajo) |
 
 ```bash
 cd backend
@@ -187,3 +188,28 @@ JSONB `data`.
 - Al publicar cambios de migraciones, hay que **desactivar el proyecto de
   Vercel del backend** (ya no hay nada que desplegar ahí) y aplicar
   `npm run db:setup`.
+
+### Simulador de ataques
+
+`npm run seguridad:simular` (en `backend/`) hace las preguntas que haría un
+atacante contra esta arquitectura, que es "la `anon` key va en el bundle y el
+RLS decide":
+
+| Grupo | Que intenta |
+|---|---|
+| Robo de datos | Leer cada tabla sensible sin iniciar sesión |
+| Escritura | Crear un bien, crear un administrador, activar el modo mantenimiento |
+| IDOR | Cambiar el filtro por dependencia a mano y usar `.or()` para evadirlo |
+| RPC | Ejecutar cada función `SECURITY DEFINER` sin sesión |
+| Fuerza bruta | Probar contraseñas genéricas contra el login y enumerar cuentas |
+| Storage | Listar el bucket de fotos de los bienes |
+| Cabeceras | Ver si falta CSP, HSTS o protección contra framing |
+| Bundle | Buscar `service_role` u otras credenciales en el código publicado |
+| API retirada | Ver si la API Express vieja sigue respondiendo |
+
+**Garantías**: solo lee; lo que escribe lo borra en el acto; nunca usa la
+contraseña real de nadie; y al terminar **verifica que los conteos de todas
+las tablas sigan siendo los mismos** (si algo queda, lo dice).
+
+Sale con código 1 si encuentra algo expuesto, para poder usarlo en un
+pipeline.

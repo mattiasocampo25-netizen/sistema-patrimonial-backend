@@ -183,6 +183,19 @@ abajo).
 
 ---
 
+## Pendiente conocido
+
+- [ ] **Volver privados los dos repositorios** (`sistema-patrimonial-frontend`
+      y `sistema-patrimonial-backend`). Son repos de una app interna de la UNP
+      y no tienen nada que sea público. El historial del frontend contiene un
+      `.env` con la `anon` key (que es pública por diseño, pero conviene que
+      no quede descargable: hoy da HTTP 200).
+      Al hacerlos privados: re-autorizar Vercel (GitHub → Settings →
+      Applications → Installed Apps → Vercel → *Only select repositories* →
+      agregar el repo) y **verificar que el PAT de git tenga el scope `repo`
+      o `contents: write`**, porque con `public_repo` el push deja de
+      funcionar.
+
 ## Renombrar el repositorio (opcional)
 
 El repositorio de GitHub se llama `sistema-patrimonial-backend` pero ya no

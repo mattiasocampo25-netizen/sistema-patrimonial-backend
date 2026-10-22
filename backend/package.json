@@ -9,7 +9,8 @@
     "db:setup": "node scripts/setup-db.js",
     "db:crear-cuenta": "node scripts/crear-cuenta-auth.js",
     "aviso:iniciar": "node scripts/aviso-mantenimiento.js iniciar",
-    "aviso:cerrar": "node scripts/aviso-mantenimiento.js cerrar"
+    "aviso:cerrar": "node scripts/aviso-mantenimiento.js cerrar",
+    "seguridad:simular": "node scripts/simulador-ataque.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
