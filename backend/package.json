@@ -1,6 +1,6 @@
 {
   "name": "sistema-patrimonial-backend",
-  "version": "2.13.2",
+  "version": "2.13.3",
   "description": "Gestión de base de datos del SIGEP UNP: migraciones, scripts y pruebas de RLS",
   "private": true,
   "main": "scripts/setup-db.js",
@@ -13,6 +13,7 @@
     "seguridad:simular": "node scripts/simulador-ataque.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "pg": "^8.22.0"
   },

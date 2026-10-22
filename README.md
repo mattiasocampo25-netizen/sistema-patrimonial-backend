@@ -100,7 +100,7 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 
 | Comando | Que hace |
 |---|---|
-| `npm test` | Pruebas del RLS contra la base real (11 tests) |
+| `npm test` | Pruebas del RLS contra la base real (11 tests) + versión + dependencias de los scripts |
 | `npm run db:setup` | Aplica las migraciones 001→011 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
 | `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
@@ -188,6 +188,40 @@ JSONB `data`.
 - Al publicar cambios de migraciones, hay que **desactivar el proyecto de
   Vercel del backend** (ya no hay nada que desplegar ahí) y aplicar
   `npm run db:setup`.
+- La **Content-Security-Policy** va en modo **estricto** (`Content-Security-Policy`,
+  no `Report-Only`): el navegador **bloquea** lo que no esté permitido. Vive en
+  `frontend/vercel.json` y se aplicó primero en modo aviso para no romper nada.
+  Para cambiarla hay que probarla contra el build real (ver "Probar la CSP
+  antes de publicarla").
+- `npm run db:crear-cuenta` necesita `bcryptjs`: sin esa dependencia el script
+  no arranca. `backend/test/dependencias.test.js` comprueba que todo lo que los
+  scripts del toolkit requieren esté declarado en el `package.json`.
+
+### Probar la CSP antes de publicarla
+
+La CSP bloquea de verdad: si algo que la app necesita no está permitido, la
+aplicación se rompe en el navegador del usuario, no en el servidor. Antes de
+cambiarla, se prueba contra el build real:
+
+```bash
+cd frontend
+npm run build
+node ../ruta/al/servidor-de-prueba.js dist 4175 "default-src 'self'; ..."
+```
+
+El servidor de prueba tiene que servir `dist/` y mandar la cabecera
+`Content-Security-Policy` con la política nueva. Con la app abierta en
+`http://localhost:4175` hay que comprobar en la consola que **no** hay
+violaciones, y que funcionan las cuatro operaciones que dependen de la CSP:
+
+| Que probar | Por que |
+|---|---|
+| La app carga y se ve el login | Que el bundle y las hojas de estilo cargan |
+| Generar un PDF (con imagen y tabla) | `jsPDF` + `autotable` vienen del CDN y agregan imagenes |
+| Exportar a Excel | `XLSX` viene del CDN |
+| Generar el ZIP de respaldo | `JSZip` viene del CDN |
+| Descargar un archivo | Las descargas se hacen con `blob:` (`URL.createObjectURL`) |
+| Abrir el escaner de QR | Usa la camara: `media-src` tiene que permitir `mediastream:` |
 
 ### Simulador de ataques
 
