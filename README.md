@@ -40,7 +40,7 @@ SistemaPatrimonial/
 ## Dos repositorios, dos propositos
 
 `frontend/` es un repositorio git **anidado** con su propio remoto en GitHub
-(228+ commits). Su historial no debe mezclarse con el de la raiz, asi que el
+(228+ commits). Su historial no debe mezclarse con el de la raiz, así que el
 `.gitignore` de la raiz lo excluye. El repositorio raiz cubre unicamente
 `backend/` y la documentacion.
 
@@ -76,7 +76,7 @@ cp .env.example .env
 ```
 
 Completar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. Son claves publicas
-(van embebidas en el bundle); la seguridad real depende de las politicas RLS de
+(van embebidas en el bundle); la seguridad real depende de las políticas RLS de
 Supabase.
 
 ```bash
@@ -104,7 +104,7 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 | `npm run db:setup` | Aplica las migraciones 001→011 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
 | `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
-| `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la version nueva |
+| `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la versión nueva |
 | `npm run seguridad:simular` | Simulador de ataques: prueba por dónde intentaría robar datos o entrar un atacante (ver abajo) |
 
 ```bash
@@ -115,11 +115,11 @@ npm run db:crear-cuenta jsanchez
 
 ## Procedimiento de aviso (modo mantenimiento)
 
-Toda vez que se toque la base de datos o el codigo, el sistema tiene que avisar
+Toda vez que se toque la base de datos o el código, el sistema tiene que avisar
 a los usuarios. El script `backend/scripts/aviso-mantenimiento.js` deja el
 estado en `app_config` alineado con lo que la interfaz muestra:
 
-**1. Al empezar el trabajo** (el muro se levanta, lo ve cualquiera sin sesion):
+**1. Al empezar el trabajo** (el muro se levanta, lo ve cualquiera sin sesión):
 
 ```bash
 npm run aviso:iniciar -- --mensaje "El acceso está pausado mientras se corrigen las políticas de seguridad." \
@@ -140,16 +140,16 @@ Los campos que se tocan en `app_config`:
 
 | Campo | Que muestra |
 |---|---|
-| `en_mantenimiento` | El muro (`MaintenanceScreen`), sin sesion |
+| `en_mantenimiento` | El muro (`MaintenanceScreen`), sin sesión |
 | `mensaje` | El texto del muro |
 | `mejoras` | La lista de **mejoras en curso** (se ve en el muro) |
-| `ultima_version` | La version; al cambiarla se abre el changelog |
-| `notas_version` | El **aviso de mejoras hechas** de esa version (el changelog) |
+| `ultima_version` | La versión; al cambiarla se abre el changelog |
+| `notas_version` | El **aviso de mejoras hechas** de esa versión (el changelog) |
 
 ## Esquema de base de datos
 
 El esquema real vive en Supabase, no en este repositorio, pero las
-migraciones si estan versionadas en `backend/migrations/` y son la fuente de
+migraciones si están versionadas en `backend/migrations/` y son la fuente de
 verdad de como se arma:
 
 | Migracion | Que hace |
@@ -164,7 +164,7 @@ verdad de como se arma:
 | `008_rls_usuarios_escritura.sql` | La escritura de `usuarios` solo para administradores (evita la escalada de privilegios) |
 | `009_rls_funcionarios_dependencia.sql` | Cierra el padrón de funcionarios por dependencia (cédulas) y acota la lectura de `usuarios` |
 | `010_rls_catalogos_privilegiados.sql` | La escritura de `dependencias`, `ubicaciones`, `estructuras` y `app_config` solo para privilegiados |
-| `011_rpc_permisos_anon.sql` | Quita el `EXECUTE` sobre `anon` de las funciones `SECURITY DEFINER` (la del QR publico queda) |
+| `011_rpc_permisos_anon.sql` | Quita el `EXECUTE` sobre `anon` de las funciones `SECURITY DEFINER` (la del QR público queda) |
 
 `respaldo_esquema.sql` esta vacio a proposito y documenta como regenerarlo con
 `pg_dump`. Las tablas son `bens`, `fc10`, `fc11`, `fc04`, `estructuras`,
@@ -175,9 +175,9 @@ JSONB `data`.
 
 ## Notas de seguridad
 
-- `.env`, `*.sqlite`, `node_modules` y `dist` estan ignorados por git. Nunca
+- `.env`, `*.sqlite`, `node_modules` y `dist` están ignorados por git. Nunca
   commitear credenciales.
-- `backend/patrimonio.sqlite` es un residuo de la migracion SQLite -> Supabase y
+- `backend/patrimonio.sqlite` es un residuo de la migración SQLite -> Supabase y
   puede contener datos reales de bienes: esta en el `.gitignore` por eso.
 - **El RLS es la frontera de seguridad**, no la interfaz: el frontend manda
   la `anon` key en el bundle, así que cualquiera puede pedirle a Supabase

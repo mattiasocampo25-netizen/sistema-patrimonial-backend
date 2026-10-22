@@ -276,19 +276,24 @@ async function pruebaEscritura() {
     evidencia: 'HTTP ' + r2.status + ' ' + String(r2.texto).slice(0, 70)
   });
 
-  // c) Mover el muro de mantenimiento (afecta a todos los usuarios)
+  // c) Mover el muro de mantenimiento (afecta a todos los usuarios).
+  //    Se compara el estado ANTES y DESPUES del intento: un 204 no dice si
+  //    algo cambio, y el valor de partida puede ya ser "true" (por ejemplo
+  //    con el modo mantenimiento ya levantado).
+  const leerMuro = async () => {
+    const r = await rest('app_config?id=eq.global&select=en_mantenimiento');
+    return Array.isArray(r.datos) && r.datos[0] ? r.datos[0].en_mantenimiento : null;
+  };
+  const muroAntes = await leerMuro();
   const r3 = await rest('app_config?id=eq.global', {
     metodo: 'PATCH',
     cabeceras: cab,
-    cuerpo: { en_mantenimiento: true }
+    cuerpo: { en_mantenimiento: !muroAntes }
   });
-  const estadoDespues = await rest('app_config?id=eq.global&select=en_mantenimiento');
-  const muroReal = Array.isArray(estadoDespues.datos) && estadoDespues.datos[0]
-    ? estadoDespues.datos[0].en_mantenimiento
-    : null;
-  const tocoMuro = muroReal === true;
+  const muroDespues = await leerMuro();
+  const tocoMuro = muroDespues !== muroAntes;
   if (tocoMuro) {
-    await rest('app_config?id=eq.global', { metodo: 'PATCH', cabeceras: cab, cuerpo: { en_mantenimiento: false } });
+    await rest('app_config?id=eq.global', { metodo: 'PATCH', cabeceras: cab, cuerpo: { en_mantenimiento: muroAntes } });
   }
   registrar({
     id: 'escritura', grupo: 'escritura', nombre: 'activar el modo mantenimiento sin sesión',
@@ -296,8 +301,8 @@ async function pruebaEscritura() {
     veredicto: tocoMuro ? 'EXPUESTO' : 'BLOQUEADO',
     detalle: tocoMuro
       ? '¡Se pudo tocar el muro de mantenimiento sin sesión! Se restauró en el acto.'
-      : 'El RLS rechaza la escritura en app_config sin sesión.',
-    evidencia: 'HTTP ' + r3.status + ' ' + String(r3.texto).slice(0, 70)
+      : 'El RLS rechaza la escritura en app_config sin sesión. Se comparó el estado real antes y después del intento.',
+    evidencia: 'HTTP ' + r3.status + ' | en_mantenimiento: ' + muroAntes + ' -> ' + muroDespues
   });
 }
 

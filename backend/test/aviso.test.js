@@ -48,15 +48,15 @@ const armarRepo = () => {
 
 const leerJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-describe('sincronizador de version', () => {
-  test('propaga la version a los package.json, a los locks y a APP_VERSION', () => {
+describe('sincronizador de versión', () => {
+  test('propaga la versión a los package.json, a los locks y a APP_VERSION', () => {
     const raiz = armarRepo();
     const cambios = sincronizarVersionEnArchivos('2.13.1', raiz);
 
     assert.equal(leerJson(path.join(raiz, 'backend', 'package.json')).version, '2.13.1');
     assert.equal(leerJson(path.join(raiz, 'frontend', 'package.json')).version, '2.13.1');
 
-    // El lock declara la version en la raiz y en el paquete raiz: si alguno
+    // El lock declara la versión en la raiz y en el paquete raiz: si alguno
     // queda viejo, `npm ci` falla y el build de Vercel no arranca.
     const lockBack = leerJson(path.join(raiz, 'backend', 'package-lock.json'));
     assert.equal(lockBack.version, '2.13.1');
@@ -68,22 +68,22 @@ describe('sincronizador de version', () => {
     const helpers = fs.readFileSync(path.join(raiz, 'frontend', 'src', 'utils', 'helpers.js'), 'utf8');
     assert.match(helpers, /export const APP_VERSION = '2\.13\.1';/);
 
-    assert.equal(cambios.length, 5, 'deberia reportar los 5 archivos que toco');
+    assert.equal(cambios.length, 5, 'debería reportar los 5 archivos que toco');
     fs.rmSync(raiz, { recursive: true, force: true });
   });
 
-  test('no toca nada cuando la version ya esta puesta', () => {
+  test('no toca nada cuando la versión ya esta puesta', () => {
     const raiz = armarRepo();
     sincronizarVersionEnArchivos('2.13.1', raiz);
     const antes = fs.readFileSync(path.join(raiz, 'backend', 'package.json'), 'utf8');
 
     const cambios = sincronizarVersionEnArchivos('2.13.1', raiz);
 
-    assert.deepEqual(cambios, [], 'no deberia reportar cambios');
+    assert.deepEqual(cambios, [], 'no debería reportar cambios');
     assert.equal(
       fs.readFileSync(path.join(raiz, 'backend', 'package.json'), 'utf8'),
       antes,
-      'el archivo no deberia haber cambiado'
+      'el archivo no debería haber cambiado'
     );
     fs.rmSync(raiz, { recursive: true, force: true });
   });

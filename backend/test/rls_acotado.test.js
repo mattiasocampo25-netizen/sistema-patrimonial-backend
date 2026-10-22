@@ -1,7 +1,7 @@
 /**
  * backend/test/rls_acotado.test.js
  * ============================================================================
- * Pruebas de las politicas RLS que acotan el padron de funcionarios, la
+ * Pruebas de las políticas RLS que acotan el padron de funcionarios, la
  * escritura de los catalogos y el permiso de ejecucion de las funciones.
  *
  * Estas pruebas NO pasan por la API: el backend se conecta con el rol
@@ -129,7 +129,7 @@ describe('RLS: acotado por dependencia y permisos por rol', () => {
       );
       return 'ok';
     });
-    assert.ok(r.error, 'la insercion deberia haber sido rechazada por el RLS');
+    assert.ok(r.error, 'la insercion debería haber sido rechazada por el RLS');
   });
 
   t('un funcionario si puede registrar funcionarios en su propia dependencia', async () => {
@@ -149,7 +149,7 @@ describe('RLS: acotado por dependencia y permisos por rol', () => {
   t('un funcionario no puede escribir en los catalogos', async () => {
     // El RLS se comporta distinto segun el comando:
     //   - INSERT: viola el WITH CHECK y Postgres lanza el error.
-    //   - UPDATE / DELETE: el USING deja la fila fuera del alcance, asi que
+    //   - UPDATE / DELETE: el USING deja la fila fuera del alcance, así que
     //     la sentencia termina sin error pero sin afectar NINGUNA fila.
     // Por eso INSERT se comprueba por el error y el resto por el conteo.
     const casos = [
@@ -220,7 +220,7 @@ describe('RLS: acotado por dependencia y permisos por rol', () => {
         await c.query('SELECT count(*) FROM public.' + tabla);
         return 'ok';
       });
-      assert.ok(r.error, 'el anonimo no deberia poder leer ' + tabla);
+      assert.ok(r.error, 'el anonimo no debería poder leer ' + tabla);
     }
   });
 
@@ -246,7 +246,7 @@ describe('RLS: acotado por dependencia y permisos por rol', () => {
         await c.query('SELECT * FROM ' + fn);
         return 'ok';
       });
-      assert.ok(r.error, 'el anonimo no deberia poder ejecutar ' + fn);
+      assert.ok(r.error, 'el anonimo no debería poder ejecutar ' + fn);
     }
   });
 

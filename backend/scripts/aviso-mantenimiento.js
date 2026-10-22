@@ -13,16 +13,16 @@
  *
  *   `iniciar`  -> deja el MURO: en_mantenimiento = true, con el mensaje y la
  *                 lista de MEJORAS EN CURSO (los que la ven son
- *                 MaintenanceScreen, sin iniciar sesion).
+ *                 MaintenanceScreen, sin iniciar sesión).
  *   `cerrar`   -> desactiva el muro y deja el AVISO DE MEJORAS HECHAS: la
- *                 version nueva (`ultima_version`) y las notas de esa version
+ *                 versión nueva (`ultima_version`) y las notas de esa versión
  *                 (`notas_version`). El frontend las muestra solo, sin
- *                 sesion, con el modal "Novedades de la vX" que se abre
- *                 automaticamente cuando la version cambia (App.jsx:161).
+ *                 sesión, con el modal "Novedades de la vX" que se abre
+ *                 automaticamente cuando la versión cambia (App.jsx:161).
  *
- * Al cerrar, la version se propaga ademas a los archivos que la declaran
+ * Al cerrar, la versión se propaga además a los archivos que la declaran
  * (los `package.json` de los dos repositorios, sus `package-lock.json` y la
- * constante `APP_VERSION` del frontend). Asi la version que ve el usuario
+ * constante `APP_VERSION` del frontend). Asi la versión que ve el usuario
  * sale siempre de un solo lugar.
  *
  * USO
@@ -33,16 +33,16 @@
  *              "Restringiendo la escritura de los catalogos"
  *
  *   node scripts/aviso-mantenimiento.js cerrar \
- *     --mensaje "Las mejoras ya estan aplicadas." \
- *     --mejoras "El padron de funcionarios quedo acotado por dependencia" \
- *              "La escritura de catalogos quedo restringida a administradores" \
+ *     --mensaje "Las mejoras ya están aplicadas." \
+ *     --mejoras "El padron de funcionarios quedó acotado por dependencia" \
+ *              "La escritura de catalogos quedó restringida a administradores" \
  *     --version 2.13.1
  *
  *   --mejoras acepta varias lineas (una por linea, o separadas por ";")
- *   --version es opcional en `cerrar`: si no se pasa, no se toca la version.
+ *   --version es opcional en `cerrar`: si no se pasa, no se toca la versión.
  *
  * La escritura va por un UPDATE de la fila 'global' de app_config. La tabla
- * tiene columnas planas Y una columna `data` JSONB (que quedo del esquema
+ * tiene columnas planas Y una columna `data` JSONB (que quedó del esquema
  * anterior, cuando la API Express leia la config de ahi). Se actualizan las
  * dos para que no queden desincronizadas.
  * ============================================================================
@@ -68,7 +68,7 @@ const TITULO_FINALIZADO = 'Novedades de la ultima actualizacion';
  * Se actualizan acá, en el mismo comando que publica la versión, para que no
  * dependa de que alguien se acuerde de tocarlos.
  *
- * @param {string} version  por ejemplo "2.13.1"
+ * @param {string} versión  por ejemplo "2.13.1"
  * @param {string} [raizOverride]  raíz del repositorio (solo para las pruebas)
  * @returns {string[]} descripción de cada archivo que se modificó
  */
@@ -182,7 +182,7 @@ function main() {
 
       // `mejoras` se ve en el muro (MaintenanceScreen). `notas_version` es el
       // changelog "Novedades de la vX": se escribe al cerrar, para que quede
-      // el aviso de lo que se hizo y se abra solo al cambiar la version.
+      // el aviso de lo que se hizo y se abra solo al cambiar la versión.
       const sets = [
         'en_mantenimiento = $1::boolean',
         'titulo = $2::text',
@@ -216,7 +216,7 @@ function main() {
         );
       }
 
-      // La columna `data` JSONB quedo del esquema anterior: se mantiene espejo
+      // La columna `data` JSONB quedó del esquema anterior: se mantiene espejo
       // para que no quede con el ultimo valor de otra epoca.
       await c.query(
         "UPDATE public.app_config SET data = data || $1::jsonb WHERE id = 'global'",
@@ -236,7 +236,7 @@ function main() {
       console.log('\n✅ app_config actualizado (' + accion + '):');
       console.log(JSON.stringify(fin.rows[0], null, 1));
 
-      // Al cerrar, la version nueva queda en la base; ademas se propaga a los
+      // Al cerrar, la versión nueva queda en la base; además se propaga a los
       // archivos que la muestran o la declaran, para que no se desincronicen.
       if (accion === 'cerrar' && version) {
         const cambios = sincronizarVersionEnArchivos(version);
