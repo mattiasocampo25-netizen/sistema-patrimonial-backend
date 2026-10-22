@@ -1,18 +1,23 @@
 # Sistema de Gestion Patrimonial UNP
 
-Monorepo con dos piezas independientes: una **API REST** (Node.js/Express) y un
-**frontend** (React + Vite), ambos sobre **Supabase (PostgreSQL)**.
+Aplicación web (SPA React + Vite) sobre **Supabase (PostgreSQL)**, con las
+migraciones y los scripts de base de datos versionados en este repositorio.
+
+La app habla **directo con Supabase** desde el navegador (PostgREST, RPC y
+Realtime) con la `anon` key. **No hay servidor propio**: la seguridad la
+resuelve el RLS de Postgres (ver "Notas de seguridad").
 
 ## Estructura
 
 ```
 SistemaPatrimonial/
-├── backend/              API REST + WebSocket (repo raiz)
-│   ├── server.js         Servidor Express, JWT, Socket.io
-│   ├── migrar.js         Migracion SQLite -> Supabase
-│   ├── inspector.js      Inspeccion del SQLite local
-│   ├── inspect_db.js     Listado rapido de tablas
-│   ├── install_deps.js   Instala dependencias del backend
+├── backend/              Toolkit de base de datos (repo raiz)
+│   ├── migrations/       Migraciones SQL: esquema, RLS, RPC e índices
+│   ├── scripts/          setup-db, crear cuenta de Auth, aviso de mantenimiento
+│   ├── test/             Pruebas del RLS contra la base real
+│   ├── migrar.js         Migración SQLite -> Supabase (herramienta de una vez)
+│   ├── inspector.js      Inspección del SQLite local
+│   ├── inspect_db.js     Listado rápido de tablas
 │   └── .env.example      Plantilla de variables (copiar a .env)
 ├── frontend/             SPA React 19 + Vite (REPO SEPARADO, con remoto propio)
 │   ├── src/views/        Vistas por modulo
@@ -23,6 +28,14 @@ SistemaPatrimonial/
 ├── respaldo_esquema.sql  Notas del esquema y como regenerarlo
 └── run_frontend.bat      Atajo para `npm run dev` del frontend
 ```
+
+> **Nota:** hasta la versión 2.12.1 este repositorio tenía también una API REST
+> en Express (`backend/server.js`) con WebSocket. Se retiró porque la app dejó
+> de usarla en `b3e4b72`, cuando la autenticación pasó a Supabase Auth: su
+> único mecanismo de emisión de tokens (`POST /api/login`) quedó retirado y
+> no quedó forma de obtener un JWT para esa API. Todo lo que hacía falta
+> (respaldo, restauración, firma de actas) ya lo hace el frontend contra
+> Supabase.
 
 ## Dos repositorios, dos propositos
 
@@ -36,7 +49,7 @@ separado del resto.
 
 ## Puesta en marcha
 
-### Backend
+### Base de datos (este repositorio)
 
 ```bash
 cd backend
@@ -47,17 +60,12 @@ Completar en `.env`:
 
 | Variable | Descripcion |
 |---|---|
-| `DATABASE_URL` | Cadena de conexion de PostgreSQL (Supabase) |
-| `SECRET_KEY` | Clave de firma de los JWT (generar con `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`) |
-| `ADMIN_INITIAL_PASSWORD` | Contrasena del usuario `admin` en el primer despliegue |
-| `PORT` | Puerto del servidor (por defecto 3001) |
-
-El servidor **sale con error claro si falta cualquiera de las tres primeras**:
-no hay valores por defecto escritos en el codigo.
+| `DATABASE_URL` | Cadena de conexion de PostgreSQL (Supabase). Usar el POOLER, no el host directo |
+| `AUTH_DOMINIO` | Sufijo del email de acceso (por defecto `unp.edu.py`) |
 
 ```bash
 npm install
-npm start        # o: npm run dev  (con nodemon)
+npm run db:setup          # aplica las migraciones pendientes
 ```
 
 ### Frontend
@@ -88,16 +96,15 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 | `npm test` | Pruebas unitarias (node:test) |
 | `npm run build` | Build de produccion en `frontend/dist` |
 
-### Backend
+### Base de datos (backend/)
 
 | Comando | Que hace |
 |---|---|
-| `npm start` | Levanta la API (Express + Socket.io) |
-| `npm test` | Pruebas unitarias **y de autorizacion** (24 tests) |
+| `npm test` | Pruebas del RLS contra la base real (11 tests) |
 | `npm run db:setup` | Aplica las migraciones 001→011 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
 | `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
-| `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.12.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la version nueva |
+| `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la version nueva |
 
 ```bash
 cd backend
@@ -125,7 +132,7 @@ usuarios, el modal "Novedades de la vX" (`App.jsx:161`).
 ```bash
 npm run aviso:cerrar -- --mensaje "Las mejoras ya están aplicadas." \
   --mejoras "El padrón de funcionarios quedó acotado por dependencia;La escritura de catálogos quedó restringida a administradores" \
-  --version 2.12.0
+  --version 2.13.0
 ```
 
 Los campos que se tocan en `app_config`:
@@ -154,7 +161,7 @@ verdad de como se arma:
 | `006_rpc_resumen_dependencias.sql` | RPC con los conteos por dependencia (evita traer 13.000 filas al navegador) |
 | `007_rpc_guardar_usuario.sql` | RPC de alta y edicion de usuarios (la tabla tiene SELECT por columna) |
 | `008_rls_usuarios_escritura.sql` | La escritura de `usuarios` solo para administradores (evita la escalada de privilegios) |
-| `009_rls_funcionarios_dependencia.sql` | Cierra el padron de funcionarios por dependencia (cedulas) y acota la lectura de `usuarios` |
+| `009_rls_funcionarios_dependencia.sql` | Cierra el padrón de funcionarios por dependencia (cédulas) y acota la lectura de `usuarios` |
 | `010_rls_catalogos_privilegiados.sql` | La escritura de `dependencias`, `ubicaciones`, `estructuras` y `app_config` solo para privilegiados |
 | `011_rpc_permisos_anon.sql` | Quita el `EXECUTE` sobre `anon` de las funciones `SECURITY DEFINER` (la del QR publico queda) |
 
@@ -171,3 +178,12 @@ JSONB `data`.
   commitear credenciales.
 - `backend/patrimonio.sqlite` es un residuo de la migracion SQLite -> Supabase y
   puede contener datos reales de bienes: esta en el `.gitignore` por eso.
+- **El RLS es la frontera de seguridad**, no la interfaz: el frontend manda
+  la `anon` key en el bundle, así que cualquiera puede pedirle a Supabase
+  cualquier dato. Lo que decide qué se ve es cada política de Postgres. Por
+  eso `backend/test/rls_acotado.test.js` prueba el comportamiento con los
+  roles reales (`anon`, `funcionario`, `administrador`) contra la base de
+  verdad: `npm test` en `backend/`.
+- Al publicar cambios de migraciones, hay que **desactivar el proyecto de
+  Vercel del backend** (ya no hay nada que desplegar ahí) y aplicar
+  `npm run db:setup`.

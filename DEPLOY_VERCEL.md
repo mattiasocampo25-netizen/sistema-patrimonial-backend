@@ -1,178 +1,136 @@
-# Despliegue en Vercel — Sistema Patrimonial UNP
+# Despliegue — Sistema Patrimonial UNP
 
-Este repositorio está listo para desplegarse en **Vercel** con dos proyectos separados:
-1. **Frontend** (React + Vite) — sitio estático
-2. **Backend** (Node.js + Express) — función serverless
-
----
-
-## Paso 1: Subir el código a un repositorio Git
-
-```bash
-# Desde la carpeta del proyecto
-git remote add origin https://github.com/TU_USUARIO/sistema-patrimonial.git
-git branch -M main
-git push -u origin main
-```
+> **Cambio importante (v2.13.0):** este proyecto ya no tiene backend que
+> desplegar. La API REST en Express fue retirada: la aplicación web habla
+> directo con Supabase desde el navegador. **Solo se publica el frontend.**
+> El repositorio raíz queda con las migraciones y los scripts de base de
+> datos, que se aplican contra Supabase (no se despliegan).
 
 ---
 
-## Paso 2: Desplegar el Frontend en Vercel
+## Qué se despliega
 
-1. Ve a [vercel.com](https://vercel.com) e inicia sesión.
-2. Haz clic en **"Add New Project"**.
-3. Importa tu repositorio `sistema-patrimonial`.
-4. En la configuración del proyecto:
-   - **Root Directory**: `frontend`
+| Qué | Dónde | Desde qué repositorio |
+|---|---|---|
+| La aplicación web (SPA) | Vercel, como sitio estático | `frontend/` (repo propio) |
+| La base de datos | Supabase (PostgreSQL) | — |
+| Las migraciones y scripts | No se despliegan: se aplican con `npm run db:setup` | `backend/` (repo raíz) |
+
+---
+
+## Paso 1: Publicar el frontend
+
+1. Andá a [vercel.com](https://vercel.com) e iniciá sesión.
+2. **Add New Project** → importá el repositorio **`sistema-patrimonial-frontend`**
+   (el del frontend; el de la raíz es el de la base de datos).
+3. Configuración:
+   - **Root Directory**: `frontend` (o dejalo vacío si el repositorio ya es el
+     del frontend).
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
    - **Framework**: Vite (detectado automáticamente)
-5. Agrega las **Variables de Entorno**:
-   - `VITE_API_URL` = `https://tu-backend.vercel.app` (la URL de tu backend, ver Paso 3)
-6. Haz clic en **Deploy**.
+4. Variables de entorno:
+   - `VITE_SUPABASE_URL` → `https://TU-PROYECTO.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY` → la clave pública (anon) de Supabase
 
-El archivo `frontend/vercel.json` ya está configurado con los rewrites para SPA (historial de rutas).
+   Son claves **públicas**: van embebidas en el bundle. La seguridad no
+   depende de ellas sino de las políticas RLS de la base.
 
----
+5. Deploy.
 
-## Paso 3: Desplegar el Backend en Vercel
-
-1. Crea un **nuevo proyecto** en Vercel (otro "Add New Project").
-2. Importa el mismo repositorio.
-3. En la configuración:
-   - **Root Directory**: `backend`
-   - **Build Command**: (dejar vacío, no es necesario para Node)
-   - **Output Directory**: (dejar vacío)
-4. Vercel detectará `backend/api/index.js` como la función serverless y expone
-   todo `/api/*` automáticamente. **No hace falta `vercel.json`**: se eliminó
-   porque el bloque `functions` pedía un runtime en formato `nodejs20.x` y el
-   schema actual de Vercel exige `<runtime>@<version>` (`invalid_function_runtime`).
-   - **Verificá la versión de Node en** Settings → General → Node.js version
-     (18 está en fin de vida; usá 20 o superior).
-   - **Si el proyecto tiene el Root Directory en `backend`**, las variables de
-     entorno del proyecto llegan tal cual a la función. El backend acepta
-     `DATABASE_URL` o `SUPABASE_DB_URL`, y `SECRET_KEY` o `JWT_SECRET`.
-   - **No definás `PORT`**: lo asigna Vercel.
-   - `DATABASE_SSL` no hace falta: sin esa variable el servidor usa
-     `{ rejectUnauthorized: false }`, que es SSL activo y es lo que exige
-     Supabase.
-5. Agrega las **Variables de Entorno** obligatorias en
-   *Settings → Environment Variables*. El nombre debe ser **exacto**: son las
-   que lee el código (`process.env.X`).
-
-   | Nombre | Valor |
-   |---|---|
-   | `DATABASE_URL` | `postgresql://postgres.<ref>:<clave>@aws-0-<regiona>.pooler.supabase.com:5432/postgres` |
-   | `SECRET_KEY` | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-   | `CORS_ORIGIN` | `https://tu-frontend.vercel.app` |
-
-   > **Usa el pooler de Supabase** (`aws-0-<regiona>.pooler.supabase.com`, usuario
-   > `postgres.<ref>`), no el host directo `db.<ref>.supabase.co`: el host
-   > directo es **IPv6-only** y no resuelve en la mayoría de las redes.
-   >
-   > `SECRET_KEY` **no** puede ser el secreto JWT de Supabase: si lo fuera,
-   > cualquiera con la `service_role` podría firmar un token de administrador
-   > y la API lo aceptaría. Es una clave propia de esta API.
-   >
-   > `ADMIN_INITIAL_PASSWORD` ya no hace falta: el alta de usuarios se hace
-   > contra Supabase Auth.
-6. Haz clic en **Deploy**.
-7. **Redeploy** después de cambiar variables: no se aplican a despliegues ya
-   hechos (Deployments → ⋯ → Redeploy).
-
-### Comprobar que quedó bien
-
-```bash
-curl -s https://tu-backend.vercel.app/api/health
-```
-
-| Respuesta | Significado |
-|---|---|
-| `{"ok":true,...,"db":"ok"}` | Todo bien |
-| `{"ok":false,"faltan":["DATABASE_URL","SECRET_KEY"],...}` | Faltan variables: el mensaje dice cuáles |
-| `FUNCTION_INVOCATION_FAILED` (500 sin cuerpo) | La función crashea: mirá los logs del deployment |
-
-El backend queda expuesto en `https://tu-backend.vercel.app/api/...`
+`frontend/vercel.json` ya tiene el rewrite de SPA (para que las rutas
+profundas como `/inventario` no den 404 al recargar).
 
 ---
 
-## Paso 4: Ejecutar la migración de base de datos
+## Paso 2: Aplicar las migraciones
 
-Una vez desplegado el backend, ejecuta el SQL en el SQL Editor de Supabase:
-
-```bash
-# O ejecuta directamente en el SQL Editor de Supabase Dashboard:
-cat backend/migrations/001_esquema_inicial.sql
-```
-
-Esto crea:
-- Tabla `app_config` (configuración global, modo mantenimiento)
-- Índices en columnas JSONB para rendimiento
-- Documentación de sugerencias de encriptación
-
----
-
-## Paso 5: Ejecutar los tests
-
-En tu máquina local, antes de desplegar:
+Contra la base de Supabase, desde el repositorio raíz:
 
 ```bash
-# Backend
 cd backend
-npm test
-
-# Frontend
-cd frontend
-npm test
+cp .env.example .env        # en Windows: copy .env.example .env
+# completar DATABASE_URL
+npm install
+npm run db:setup
 ```
 
-Todos los tests deben pasar (tests de respaldo y autorización incluidos).
+`db:setup` es **idempotente**: aplica solo las migraciones pendientes y
+anota las aplicadas en `public.schema_migrations`. Se puede volver a correr
+las veces que haga falta.
 
----
+Para ver el estado final de la base:
 
-## Estructura de despliegue
-
-```
-sistema-patrimonial/
-├── backend/
-│   ├── api/index.js          # Handler serverless para Vercel
-│   ├── server.js             # App Express (exportada)
-│   ├── lib/respaldo.js       # Backup/restore con schema validation
-│   ├── lib/authz.js          # Middleware de autorización (exigirAdmin)
-│   ├── lib/security.js       # Rate limiting, sanitización, CSP
-│   ├── migrations/           # SQL de base de datos
-│   ├── test/                 # Tests unitarios (respaldo, authz)
-│   └── vercel.json           # Configuración Vercel backend
-├── frontend/
-│   ├── vercel.json           # Configuración Vercel frontend
-│   └── ...
-├── DEPLOY_VERCEL.md          # Este archivo
-└── README.md
+```bash
+npm test    # 11 pruebas del RLS contra la base real
 ```
 
 ---
 
-## Endpoints clave del backend
+## Paso 3: Crear la cuenta de Auth de un usuario
 
-| Método | Ruta | Protección | Descripción |
-|--------|------|------------|-------------|
-| GET | `/api/respaldo/exportar` | `exigirAdmin` | Descarga JSON completo de respaldo |
-| POST | `/api/respaldo/restaurar` | `exigirAdmin` | Valida esquema y restaura BD |
-| PATCH | `/api/fc10/:id/firma-estado` | `exigirAdmin` | Cambia estado de firma FC-10 (solo admin) |
-| GET | `/api/app_config` | `exigirPrivilegio` | Configuración global (mantenimiento) |
-| PATCH | `/api/app_config` | `exigirPrivilegio` | Actualizar configuración global |
+Un usuario necesita **dos** cosas: el perfil en `public.usuarios` (con su rol
+y su dependencia) y la cuenta de Supabase Auth. El alta del perfil la hace
+la aplicación; la cuenta de Auth se crea con el script:
 
----
+```bash
+npm run db:crear-cuenta jsanchez
+```
 
-## Notas importantes
-
-- **Socket.io**: En Vercel serverless, WebSockets no están disponibles. El frontend seguirá funcionando para operaciones REST, pero el tiempo real via Socket.io requeriría un backend en un entorno persistente (Railway, Render, DigitalOcean App Platform).
-- **Rate limiting**: El limitador general es en memoria (120 req/min por IP). En Vercel serverless, cada invocación es isolada, por lo que el rate limiting funciona por instancia, no globalmente. Para producción de alto tráfico, considera Redis o un WAF.
-- **Variables de entorno**: Nunca commitees el archivo `.env`. Usa el panel de Vercel para configurarlas.
+Imprime una clave temporal: hay que comunicársela al usuario para que entre
+y la cambie. La clave **nunca** se guarda en `public.usuarios` (esa columna es
+un residuo del esquema anterior y no se usa).
 
 ---
 
-## Soporte
+## Paso 4: Avisar a los usuarios
 
-Contacto: patrimonio@unp.edu.py
-Desarrollador: Matias Ocampo
+Si el cambio afecta la base o la interfaz, se avisa con el procedimiento de
+mantenimiento (ver el README):
+
+```bash
+npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"
+# ... se hace el trabajo ...
+npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0
+```
+
+El frontend detecta el cambio de `ultima_version` y abre solo, para todos los
+usuarios, el modal "Novedades de la vX".
+
+---
+
+## Paso 5: Retirar el proyecto viejo de Vercel (backend)
+
+Hasta la v2.12.1 hubo un segundo proyecto en Vercel con el Root Directory
+`backend` que publicaba la API Express. **Ya no hay nada que publicar**, así
+que hay que desactivarlo:
+
+1. En Vercel, abrí el proyecto del backend.
+2. **Settings → Git → Disconnect** (o **Deployments → … → Remove**).
+3. Opcionalmente, borrá el proyecto entero.
+
+Mientras siga conectado, cada push a la raíz dispara un despliegue que falla
+por falta de `api/index.js`. No rompe nada, pero ensucia los logs.
+
+---
+
+## Comprobar que quedó bien
+
+| Qué | Cómo |
+|---|---|
+| La app carga | Abrir la URL de Vercel: debe verse el login |
+| El muro de mantenimiento | Con el muro activo, cualquier visitante ve el aviso sin iniciar sesión |
+| La base | `cd backend && npm test` — las 11 pruebas del RLS con los roles reales |
+| El changelog | Tras un `aviso:cerrar` con versión nueva, entra un usuario: debe abrirse solo el modal "Novedades de la vX" |
+
+---
+
+## Solución de problemas
+
+| Síntoma | Causa probable |
+|---|---|
+| La app carga pero no entra nadie | Las políticas RLS no están aplicadas: correr `npm run db:setup` |
+| "Usuario sin perfil en el sistema" | El usuario tiene cuenta de Auth pero no fila en `public.usuarios` |
+| El QR público no carga | La RPC `obtener_bien_publico` no existe: correr `npm run db:setup` |
+| El despliegue de Vercel falla | Se está publicada la raíz: el proyecto de Vercel del backend hay que desconectarlo (Paso 5) |
+| Un funcionario ve datos de otra dependencia | El RLS no está aplicado o la sesión quedó cacheada en el navegador: recargar con `Ctrl+F5` |

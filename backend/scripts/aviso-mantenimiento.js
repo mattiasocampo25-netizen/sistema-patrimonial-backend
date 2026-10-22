@@ -37,8 +37,9 @@
  *   --version es opcional en `cerrar`: si no se pasa, no se toca la version.
  *
  * La escritura va por un UPDATE de la fila 'global' de app_config. La tabla
- * tiene columnas planas Y una columna `data` JSONB (la usa el backend
- * Express). Se actualizan las dos para que no queden desincronizadas.
+ * tiene columnas planas Y una columna `data` JSONB (que quedo del esquema
+ * anterior, cuando la API Express leia la config de ahi). Se actualizan las
+ * dos para que no queden desincronizadas.
  * ============================================================================
  */
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -134,7 +135,8 @@ const TITULO_FINALIZADO = 'Novedades de la ultima actualizacion';
       );
     }
 
-    // La columna `data` JSONB la usa el backend Express: se mantiene espejo.
+    // La columna `data` JSONB quedo del esquema anterior: se mantiene espejo
+    // para que no quede con el ultimo valor de otra epoca.
     await c.query(
       "UPDATE public.app_config SET data = data || $1::jsonb WHERE id = 'global'",
       [JSON.stringify({

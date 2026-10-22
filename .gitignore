@@ -71,9 +71,8 @@ Desktop.ini
 !.vscode/extensions.json
 *.swp
 *~
-# vercel.json del root: Vercel despliega desde frontend/, donde si hay
-# package.json. En la raiz Vercel no detecta el proyecto.
-# La barra inicial es importante: sin ella el patron tambien ignoraba
-# backend/vercel.json, que SI debe estar versionado (Vercel lo necesita
-# para saber que funcion es la serverless y que rutas exponer).
+# vercel.json del root: el proyecto de Vercel de la raiz ya no existe (la API
+# Express se retiro en la v2.13.0 y ahora solo se publica el frontend, que
+# vive en su propio repositorio y su propio vercel.json). Si queda uno sin
+# versionar aca, es residuo de la configuracion anterior.
 /vercel.json

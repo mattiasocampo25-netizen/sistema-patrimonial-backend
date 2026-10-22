@@ -34,7 +34,7 @@
 -- ---------------------------------------------------------------------------
 -- TABLAS CONOCIDAS DEL SISTEMA
 -- ---------------------------------------------------------------------------
--- Derivadas de backend/server.js y del cliente Supabase:
+-- Derivadas del cliente Supabase (frontend) y de las migraciones:
 --
 --   bens          -- bienes patrimoniales
 --   fc10          -- fichas FC-10
