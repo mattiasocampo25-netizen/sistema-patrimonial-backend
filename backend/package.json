@@ -1,6 +1,6 @@
 {
   "name": "sistema-patrimonial-backend",
-  "version": "2.14.1",
+  "version": "2.14.2",
   "description": "Gestión de base de datos del SIGEP UNP: migraciones, scripts y pruebas de RLS",
   "private": true,
   "main": "scripts/setup-db.js",
