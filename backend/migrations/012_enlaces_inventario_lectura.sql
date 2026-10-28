@@ -9,14 +9,25 @@ CREATE TABLE IF NOT EXISTS public.enlaces_inventario (
   titulo TEXT NOT NULL,
   bienes JSONB NOT NULL CHECK (jsonb_typeof(bienes) = 'array'),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
-  vence_en TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')
+  vence_en TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '1 day')
 );
+
+ALTER TABLE public.enlaces_inventario
+  ALTER COLUMN vence_en SET DEFAULT (now() + interval '1 day');
+UPDATE public.enlaces_inventario
+SET vence_en = LEAST(vence_en, creado_en + interval '1 day')
+WHERE vence_en > creado_en + interval '1 day';
 
 ALTER TABLE public.enlaces_inventario ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.enlaces_inventario FROM PUBLIC, anon, authenticated;
 
+-- bens.id es TEXT en el esquema de la aplicación; mantener UUID[] aquí provoca
+-- el error PostgreSQL `operator does not exist: text = uuid` al validar bienes.
+-- Eliminar la firma anterior para que PostgREST no conserve una RPC ambigua.
+DROP FUNCTION IF EXISTS public.crear_enlace_inventario(UUID[], TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.crear_enlace_inventario(
-  p_bien_ids UUID[],
+  p_bien_ids TEXT[],
   p_dependencia TEXT,
   p_funcionario TEXT DEFAULT NULL
 ) RETURNS UUID
@@ -25,7 +36,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_ids UUID[];
+  v_ids TEXT[];
   v_bienes JSONB;
   v_total INTEGER;
   v_titulo TEXT;
@@ -43,7 +54,7 @@ BEGIN
   END IF;
 
   SELECT array_agg(DISTINCT bien_id) INTO v_ids
-  FROM unnest(coalesce(p_bien_ids, ARRAY[]::UUID[])) AS ids(bien_id);
+  FROM unnest(coalesce(p_bien_ids, ARRAY[]::TEXT[])) AS ids(bien_id);
   IF coalesce(cardinality(v_ids), 0) = 0 OR cardinality(v_ids) > 500 THEN
     RAISE EXCEPTION 'Selecciona entre 1 y 500 bienes' USING ERRCODE = '22023';
   END IF;
@@ -122,8 +133,8 @@ AS $$
   WHERE e.token = p_token AND e.vence_en > now();
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.crear_enlace_inventario(UUID[], TEXT, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.crear_enlace_inventario(UUID[], TEXT, TEXT) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.crear_enlace_inventario(TEXT[], TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.crear_enlace_inventario(TEXT[], TEXT, TEXT) TO authenticated;
 REVOKE EXECUTE ON FUNCTION public.obtener_inventario_compartido(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.obtener_inventario_compartido(UUID) TO anon, authenticated;
 
