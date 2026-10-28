@@ -101,7 +101,7 @@ Desde la raiz tambien funciona `run_frontend.bat` en Windows.
 | Comando | Que hace |
 |---|---|
 | `npm test` | Pruebas del RLS contra la base real (11 tests) + versión + dependencias de los scripts |
-| `npm run db:setup` | Aplica las migraciones 001→011 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
+| `npm run db:setup` | Aplica las migraciones 001→012 en orden. Es idempotente: se puede re-correr. Las ya aplicadas se anotan en `public.schema_migrations` |
 | `npm run db:crear-cuenta <usuario>` | Crea la cuenta de Supabase Auth de un usuario que ya tiene perfil en `public.usuarios` e imprime una clave temporal |
 | `npm run aviso:iniciar -- --mensaje "..." --mejoras "a;b"` | **Activa el modo mantenimiento** con la lista de mejoras en curso (ver "Procedimiento de aviso") |
 | `npm run aviso:cerrar -- --mensaje "..." --mejoras "a;b" --version 2.13.0` | **Desactiva el mantenimiento** y publica el aviso de mejoras hechas + la versión nueva |
@@ -165,6 +165,7 @@ verdad de como se arma:
 | `009_rls_funcionarios_dependencia.sql` | Cierra el padrón de funcionarios por dependencia (cédulas) y acota la lectura de `usuarios` |
 | `010_rls_catalogos_privilegiados.sql` | La escritura de `dependencias`, `ubicaciones`, `estructuras` y `app_config` solo para privilegiados |
 | `011_rpc_permisos_anon.sql` | Quita el `EXECUTE` sobre `anon` de las funciones `SECURITY DEFINER` (la del QR público queda) |
+| `012_enlaces_inventario_lectura.sql` | Crea enlaces temporales de solo lectura con una proyección mínima de bienes compartidos |
 
 `respaldo_esquema.sql` esta vacio a proposito y documenta como regenerarlo con
 `pg_dump`. Las tablas son `bens`, `fc10`, `fc11`, `fc04`, `estructuras`,

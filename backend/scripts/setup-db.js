@@ -20,6 +20,7 @@
  *  10) 010_rls_catalogos_privilegiados.sql  -> cierra los catálogos y el
  *                                                muro de mantenimiento
  *  11) 011_rpc_permisos_anon.sql     -> quita EXECUTE a anon de las RPC
+ *  12) 012_enlaces_inventario_lectura.sql -> enlaces efímeros de lectura acotada
  *
  * OJO: 004 presupone que el frontend ya deployed usa la RPC
  * `obtener_bien_publico` (si no, la vista pública del QR deja de funcionar).
@@ -59,7 +60,8 @@ const MIGRACIONES = [
   '008_rls_usuarios_escritura.sql',
   '009_rls_funcionarios_dependencia.sql',
   '010_rls_catalogos_privilegiados.sql',
-  '011_rpc_permisos_anon.sql'
+  '011_rpc_permisos_anon.sql',
+  '012_enlaces_inventario_lectura.sql'
 ];
 
 // Tabla de registro. Se crea acá (no en una migración) para que el script
