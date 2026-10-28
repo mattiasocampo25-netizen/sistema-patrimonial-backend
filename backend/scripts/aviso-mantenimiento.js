@@ -39,7 +39,8 @@
  *     --version 2.13.1
  *
  *   --mejoras acepta varias lineas (una por linea, o separadas por ";")
- *   --version es opcional en `cerrar`: si no se pasa, no se toca la versión.
+ *   --version es opcional en ambas acciones: al iniciar actualiza la versión
+ *   visible durante el mantenimiento; al cerrar la publica con el changelog.
  *
  * La escritura va por un UPDATE de la fila 'global' de app_config. La tabla
  * tiene columnas planas Y una columna `data` JSONB (que quedó del esquema
@@ -192,11 +193,11 @@ function main() {
       ];
       const vals = [enMantenimiento, titulo, mensaje, JSON.stringify(mejoras), ahora];
 
+      if (version) {
+        sets.push('ultima_version = $' + (vals.length + 1) + '::text');
+        vals.push(version);
+      }
       if (accion === 'cerrar') {
-        if (version) {
-          sets.push('ultima_version = $6::text');
-          vals.push(version);
-        }
         if (mejoras.length) {
           sets.push('notas_version = $' + (vals.length + 1) + '::jsonb');
           vals.push(JSON.stringify(mejoras));
@@ -209,10 +210,12 @@ function main() {
       );
       if (upd.rowCount === 0) {
         // La fila 'global' no existe todavia: se crea con el estado pedido.
+        const extraVersion = version ? ', ultima_version' : '';
+        const extraParametro = version ? ', $6::text' : '';
         await c.query(
-          'INSERT INTO public.app_config (id, en_mantenimiento, titulo, mensaje, mejoras, actualizado_en, data) ' +
-          "VALUES ('global', $1, $2, $3, $4::jsonb, $5, '{}'::jsonb)",
-          vals.slice(0, 5)
+          'INSERT INTO public.app_config (id, en_mantenimiento, titulo, mensaje, mejoras, actualizado_en, data' + extraVersion + ') ' +
+          "VALUES ('global', $1, $2, $3, $4::jsonb, $5, '{}'::jsonb" + extraParametro + ')',
+          vals.slice(0, version ? 6 : 5)
         );
       }
 
@@ -226,7 +229,7 @@ function main() {
           mensaje,
           mejoras,
           actualizado_en: ahora,
-          ...(accion === 'cerrar' && version ? { ultima_version: version } : {})
+          ...(version ? { ultima_version: version } : {})
         })]
       );
 
@@ -236,9 +239,9 @@ function main() {
       console.log('\n✅ app_config actualizado (' + accion + '):');
       console.log(JSON.stringify(fin.rows[0], null, 1));
 
-      // Al cerrar, la versión nueva queda en la base; además se propaga a los
-      // archivos que la muestran o la declaran, para que no se desincronicen.
-      if (accion === 'cerrar' && version) {
+      // La versión queda en la base y se propaga a los archivos que la
+      // muestran o declaran, tanto al iniciar como al cerrar mantenimiento.
+      if (version) {
         const cambios = sincronizarVersionEnArchivos(version);
         console.log('\n📦 Version sincronizada en los archivos:');
         for (const c2 of cambios) console.log('   ' + c2);
