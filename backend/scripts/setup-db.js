@@ -23,6 +23,9 @@
  *  12) 012_enlaces_inventario_lectura.sql -> enlaces efímeros de lectura acotada
  *  13) 013_uso_recursos_admin.sql -> métricas reales del panel de salud
  *  14) 014_cierre_fc11_con_registro_firmas.sql -> cierre atómico tras archivo
+ *  15) 015_rls_escritura_aprobaciones_qr_storage.sql -> escritura y datos
+ *                                                  públicos protegidos
+ *  16) 016_bienes_edicion_por_dependencia.sql -> edición existente por rol
  *
  * OJO: 004 presupone que el frontend ya deployed usa la RPC
  * `obtener_bien_publico` (si no, la vista pública del QR deja de funcionar).
@@ -65,7 +68,9 @@ const MIGRACIONES = [
   '011_rpc_permisos_anon.sql',
   '012_enlaces_inventario_lectura.sql',
   '013_uso_recursos_admin.sql',
-  '014_cierre_fc11_con_registro_firmas.sql'
+  '014_cierre_fc11_con_registro_firmas.sql',
+  '015_rls_escritura_aprobaciones_qr_storage.sql',
+  '016_bienes_edicion_por_dependencia.sql'
 ];
 
 // Tabla de registro. Se crea acá (no en una migración) para que el script
