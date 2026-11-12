@@ -25,9 +25,12 @@ CREATE POLICY "Bienes: lectura por dependencia"
 CREATE POLICY "Bienes: alta privilegiada"
   ON public.bens FOR INSERT TO authenticated
   WITH CHECK (public.es_privilegiado_actual());
-CREATE POLICY "Bienes: edición privilegiada"
+CREATE POLICY "Bienes: edición por dependencia"
   ON public.bens FOR UPDATE TO authenticated
-  USING (public.es_privilegiado_actual()) WITH CHECK (public.es_privilegiado_actual());
+  USING (public.es_privilegiado_actual()
+    OR lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), '')))
+  WITH CHECK (public.es_privilegiado_actual()
+    OR lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), '')));
 CREATE POLICY "Bienes: borrado privilegiado"
   ON public.bens FOR DELETE TO authenticated USING (public.es_privilegiado_actual());
 
@@ -111,16 +114,32 @@ CREATE POLICY "Notificaciones: actualiza administración o avisos propios"
     public.es_privilegiado_actual()
     OR (
       coalesce(data ->> 'tipo', '') NOT IN ('BAJA_BIEN', 'BAJA_FUNCIONARIO')
-      AND lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
-      AND lower(coalesce(data ->> 'usuarioDestino', 'TODOS')) IN (lower(coalesce(public.usuario_actual(), '')), 'todos')
+      AND (
+        (
+          lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
+          AND lower(coalesce(data ->> 'usuarioDestino', 'TODOS')) IN (lower(coalesce(public.usuario_actual(), '')), 'todos')
+        )
+        OR (
+          data ->> 'tipoRegistro' = 'NOTIFICACION'
+          AND lower(coalesce(data ->> 'usuarioDestino', '')) = lower(coalesce(public.usuario_actual(), ''))
+        )
+      )
     )
   )
   WITH CHECK (
     public.es_privilegiado_actual()
     OR (
       coalesce(data ->> 'tipo', '') NOT IN ('BAJA_BIEN', 'BAJA_FUNCIONARIO')
-      AND lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
-      AND lower(coalesce(data ->> 'usuarioDestino', 'TODOS')) IN (lower(coalesce(public.usuario_actual(), '')), 'todos')
+      AND (
+        (
+          lower(coalesce(data ->> 'dependencia', '')) = lower(coalesce(public.dependencia_actual(), ''))
+          AND lower(coalesce(data ->> 'usuarioDestino', 'TODOS')) IN (lower(coalesce(public.usuario_actual(), '')), 'todos')
+        )
+        OR (
+          data ->> 'tipoRegistro' = 'NOTIFICACION'
+          AND lower(coalesce(data ->> 'usuarioDestino', '')) = lower(coalesce(public.usuario_actual(), ''))
+        )
+      )
     )
   );
 

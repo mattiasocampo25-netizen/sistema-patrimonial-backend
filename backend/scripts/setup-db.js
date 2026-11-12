@@ -70,7 +70,9 @@ const MIGRACIONES = [
   '013_uso_recursos_admin.sql',
   '014_cierre_fc11_con_registro_firmas.sql',
   '015_rls_escritura_aprobaciones_qr_storage.sql',
-  '016_bienes_edicion_por_dependencia.sql'
+  '016_bienes_edicion_por_dependencia.sql',
+  '017_notificaciones_consultas_y_permisos.sql',
+  '018_rpc_marcar_anuncio_leido.sql'
 ];
 
 // Tabla de registro. Se crea acá (no en una migración) para que el script
