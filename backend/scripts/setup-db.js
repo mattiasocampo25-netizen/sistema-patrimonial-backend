@@ -76,7 +76,8 @@ const MIGRACIONES = [
   '019_qr_responsable_ubicacion.sql',
   '020_qr_y_auditoria_segura.sql',
   '021_resumen_asignaciones_dependencia.sql',
-  '022_resumen_asignaciones_solo_bienes_activos.sql'
+  '022_resumen_asignaciones_solo_bienes_activos.sql',
+  '023_rpc_solicitudes_baja_autenticadas.sql'
 ];
 
 // Tabla de registro. Se crea acá (no en una migración) para que el script
