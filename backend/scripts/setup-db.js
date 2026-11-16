@@ -72,7 +72,10 @@ const MIGRACIONES = [
   '015_rls_escritura_aprobaciones_qr_storage.sql',
   '016_bienes_edicion_por_dependencia.sql',
   '017_notificaciones_consultas_y_permisos.sql',
-  '018_rpc_marcar_anuncio_leido.sql'
+  '018_rpc_marcar_anuncio_leido.sql',
+  '019_qr_responsable_ubicacion.sql',
+  '020_qr_y_auditoria_segura.sql',
+  '021_resumen_asignaciones_dependencia.sql'
 ];
 
 // Tabla de registro. Se crea acá (no en una migración) para que el script
